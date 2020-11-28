@@ -61,10 +61,12 @@ ui <- fluidPage(
       "Descriptives statistics:",
       tableOutput("descriptives_stat"),
       checkboxInput("remove_frequency_chart", "Remove_frequency_chart", value = TRUE),
-      htmlOutput("dygraph_normal"),
+      plotlyOutput(outputId = "plotly"),
       "Descriptives statistics remove outlier:",
       tableOutput("descriptives_stat_remove_outlier"),
       "Filter outlier for smooth chart:",
+      plotlyOutput(outputId = "plotly_filter_outlier"),
+      #dygraphOutput("dygraph_filter_outlier"),
       htmlOutput("dygraph_filter_outlier")
 
 
@@ -143,9 +145,9 @@ server <- function(input, output, session) {
     psych::describe(data_one_date() %>% select(parameter_freq,parameter_value))
   })
 
-  # Dygraph chart
-  output$dygraph_normal<- renderUI({
-    plot_dygraph(data_one_date(),input$remove_frequency_chart,input$go_data_analyze_date)
+  # Plotly chart
+  output$plotly <- renderPlotly({
+    plotly_chart(data_one_date(),input$remove_frequency_chart,input$go_data_analyze_date)
   })
   # Filter outlier:
   data_one_date_no_outlier<-reactive({
@@ -161,7 +163,11 @@ server <- function(input, output, session) {
   output$descriptives_stat_remove_outlier <- renderTable({
     psych::describe(data_one_date_no_outlier() %>% select(parameter_freq,parameter_value))
   })
-  # Dygraph chart after filter outlier:
+  # Plotly after filter outlier:
+  output$plotly_filter_outlier <- renderPlotly({
+    plotly_chart(data_one_date_no_outlier(),input$remove_frequency_chart,input$go_data_analyze_date)
+  })
+  # Plot Dygraph after filter outlier:
   output$dygraph_filter_outlier <- renderUI({
     plot_dygraph(data_one_date_no_outlier(),input$remove_frequency_chart,input$go_data_analyze_date)
   })
@@ -184,7 +190,40 @@ server <- function(input, output, session) {
     #htmltools::browsable(htmltools::tagList(dy_graph))
   }
   
-
+  #plotly function
+  plotly_chart <- function(data_one_date,check_input_remove_frequency_chart,
+                           check_go_data_analyze_date){
+    req(check_go_data_analyze_date)
+    value_chart<-plot_ly(data_one_date,x =~date_trans, y = ~parameter_value) %>%
+      add_trace(mode='lines+markers',name='Value')
+    if (check_input_remove_frequency_chart){
+      value_chart
+    } else {
+      freq_chart<-plot_ly(data_one_date,x =~date_trans, y = ~parameter_freq) %>%
+        add_trace(mode='lines+markers',name='Frequency')
+      value_chart<-plotly:: subplot(value_chart, freq_chart,nrows=2,shareX = TRUE)
+    }
+    value_chart %>% 
+      layout(
+        title = "FQC data daily",
+        xaxis = list(
+          rangeselector = list(
+            buttons = list(
+              list(
+                count = 30,
+                label = "min",
+                step = "minute",
+                stepmode = "backward"),
+              list(
+                count = 2,
+                label = "hour",
+                step = "hour",
+                stepmode = "backward"),
+              list(step = "all"))),
+          rangeslider = list(type = "date")),
+  
+        yaxis = list(title = "Value"))
+  }
   # Function to data with filter product, date, column (no need to keep)
   savefunc2 <- function(file_path,product_type_column,product_type_choose=NULL,date_column=NULL,
                         parameter_column_name=NULL,parameter_column_value=NULL){

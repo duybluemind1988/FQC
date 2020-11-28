@@ -4,8 +4,7 @@ library(lubridate)
 library(shiny)
 library(plotly)
 library(psych)
-library(dygraphs)
-library(xts)
+
 # run parallel for Data.table
 setDTthreads(threads = 0)
 getDTthreads(verbose=TRUE) 
@@ -32,7 +31,7 @@ ui <- fluidPage(
       actionButton("go_read_file", "Read file",style="color: #fff; background-color: #337ab7;"),
       selectInput("product_type_column", "Choose product type column", choices=NULL, selected=NULL),
       actionButton("go_product_type", "Show product type (wait ~ 1 min)",style="color: #fff; background-color: #337ab7;"),
-      selectInput("product_type_choose", "Choose product", choices=NULL, selected=NULL),
+      selectInput("top_product", "Choose product", choices=NULL, selected=NULL),
       selectInput("parameter_column_name", "Choose parameter column name", choices=NULL, selected=NULL),
       selectInput("parameter_column_value", "Choose parameter column value", choices=NULL, selected=NULL),
       selectInput("date_column", "Choose date column", choices=NULL, selected=NULL),
@@ -61,11 +60,11 @@ ui <- fluidPage(
       "Descriptives statistics:",
       tableOutput("descriptives_stat"),
       checkboxInput("remove_frequency_chart", "Remove_frequency_chart", value = TRUE),
-      htmlOutput("dygraph_normal"),
+      plotlyOutput(outputId = "plotly"),
       "Descriptives statistics remove outlier:",
       tableOutput("descriptives_stat_remove_outlier"),
       "Filter outlier for smooth chart:",
-      htmlOutput("dygraph_filter_outlier")
+      plotlyOutput(outputId = "plotly_filter_outlier"),
 
 
     )#end mainpanel
@@ -89,7 +88,7 @@ server <- function(input, output, session) {
   all_product <-reactive({
     req(input$go_product_type)
     #req(input$file_path,input$product_type_column) # wait for select
-    top_product<-savefunc2(input$file_path,input$product_type_column)
+    top_product<-savefunc(input$file_path,input$product_type_column)
     product_all <- as.data.frame(table(top_product)) %>%
       arrange(desc(Freq))
     head(product_all,20) # 2 columns: top_product and Freq
@@ -101,7 +100,7 @@ server <- function(input, output, session) {
                             theme(text = element_text(size=15),axis.text.x=element_text(angle=90))
     })
 
-  observeEvent(all_product(),updateSelectInput(session, "product_type_choose", choices=all_product()$top_product))
+  observeEvent(all_product(),updateSelectInput(session, "top_product", choices=all_product()$top_product))
   observeEvent(data_head_df(),updateSelectInput(session, "parameter_column_name", choices=names(data_head_df()),selected='V65'))
   observeEvent(data_head_df(),updateSelectInput(session, "parameter_column_value", choices=names(data_head_df()),selected='V66'))
   observeEvent(data_head_df(),updateSelectInput(session, "date_column", choices=names(data_head_df()),selected='V6'))
@@ -110,7 +109,7 @@ server <- function(input, output, session) {
   data_all_date <-reactive({
     req(input$go_data_analyze)
     #req(input$file_path,input$top_product,input$product_type_column,input$date_column,input$parameter_column_name,input$parameter_column_value)
-    dt<-savefunc2(input$file_path,input$product_type_column,input$product_type_choose,input$date_column,input$parameter_column_name,input$parameter_column_value)
+    dt<-savefunc2(input$file_path,input$top_product,input$product_type_column,input$date_column,input$parameter_column_name,input$parameter_column_value)
     colnames(dt) <- c("product_type", "date","parameter_freq","parameter_value")
     dt<-dt %>%
       mutate( date_trans=mdy_hms(date), # must have mdy_hms for convert date time
@@ -140,12 +139,23 @@ server <- function(input, output, session) {
 
   # show descriptive ststistics data one date:
   output$descriptives_stat <- renderTable({
-    psych::describe(data_one_date() %>% select(parameter_freq,parameter_value))
+    describe(data_one_date() %>% select(parameter_freq,parameter_value))
   })
 
-  # Dygraph chart
-  output$dygraph_normal<- renderUI({
-    plot_dygraph(data_one_date(),input$remove_frequency_chart,input$go_data_analyze_date)
+  # Plotly chart
+  output$plotly <- renderPlotly({
+    req(input$go_data_analyze_date)
+    p1<-plot_ly(data_one_date(),x =~date_trans, y = ~parameter_value) %>%
+      add_trace(mode='lines+markers',name='Value')
+    if (input$remove_frequency_chart){
+      p1
+    } else {
+      p2<-plot_ly(data_one_date(),x =~date_trans, y = ~parameter_freq) %>%
+        add_trace(mode='lines+markers',name='Frequency')
+      subplot(p1, p2,nrows=2,shareX = TRUE)
+      
+    }
+
   })
   # Filter outlier:
   data_one_date_no_outlier<-reactive({
@@ -159,43 +169,48 @@ server <- function(input, output, session) {
   })
   # show descriptive ststistics data one date filter outlier:
   output$descriptives_stat_remove_outlier <- renderTable({
-    psych::describe(data_one_date_no_outlier() %>% select(parameter_freq,parameter_value))
+    describe(data_one_date_no_outlier() %>% select(parameter_freq,parameter_value))
   })
-  # Dygraph chart after filter outlier:
-  output$dygraph_filter_outlier <- renderUI({
-    plot_dygraph(data_one_date_no_outlier(),input$remove_frequency_chart,input$go_data_analyze_date)
-  })
-  
-  
-  
-  #dygraphs function 2
-  plot_dygraph <-function(data_one_date,check_input_remove_frequency_chart,
-                          check_go_data_analyze_date){
-    req(check_go_data_analyze_date)
-    res = list()
-    res[[1]] <- dygraph(data_one_date %>% select(date_trans,parameter_value), main = "db", group = "lung-deaths")%>%
-      dyOptions( drawPoints = TRUE, pointSize = 4,useDataTimezone = TRUE )%>% dyRangeSelector()
-    if (!check_input_remove_frequency_chart){
-      res[[2]] <- dygraph(data_one_date %>% select(date_trans,parameter_freq), main = "Frequency", group = "lung-deaths")%>%
-        dyOptions( drawPoints = TRUE, pointSize = 4,useDataTimezone = TRUE )%>% dyRangeSelector()
+  # Plotly after filter outlier:
+  output$plotly_filter_outlier <- renderPlotly({
+    req(input$go_filter_outlier)
+    p1<-plot_ly(data_one_date_no_outlier(),x =~date_trans, y = ~parameter_value) %>%
+      add_trace(mode='lines+markers',name='Value')
+    if (input$remove_frequency_chart){
+      p1
+    } else {
+      p2<-plot_ly(data_one_date_no_outlier(),x =~date_trans, y = ~parameter_freq) %>%
+        add_trace(mode='lines+markers',name='Frequency')
+      subplot(p1, p2,nrows=2,shareX = TRUE)
     }
-    # render the dygraphs objects using htmltools
-    res <- htmltools::tagList(res)
-    #htmltools::browsable(htmltools::tagList(dy_graph))
-  }
-  
+  })
 
-  # Function to data with filter product, date, column (no need to keep)
-  savefunc2 <- function(file_path,product_type_column,product_type_choose=NULL,date_column=NULL,
-                        parameter_column_name=NULL,parameter_column_value=NULL){
+
+  #Function to show top some rows
+  savefunc <- function(file_path,product_type_column){
+    #product_type_column=input$product_type_column
     tryCatch(
-      expr    = {
-        if ( is.null(product_type_choose)){
-          dt2 <<- fread(file_path,fill=TRUE,select=c(product_type_column,date_column,parameter_column_name,parameter_column_value))}
-        else{
-          dt2 <<- fread(file_path,fill=TRUE,select=c(product_type_column,date_column,parameter_column_name,parameter_column_value)) %>%
-          filter(V3 ==product_type_choose)}
-        
+      expr    = {dt1 <<- fread(file_path,fill=TRUE,select=c(product_type_column))},
+      warning = function(w){
+        cat('Warning: ', w$message, '\n\n');
+        n_line <- as.numeric(gsub('Stopped early on line (\\d+)\\..*','\\1',w$message))
+        if (!is.na(n_line)) {
+          cat('Found ', n_line,'\n')
+          dt1_part1 <- fread(file_path,fill=TRUE, nrows=n_line-1,select=c(product_type_column))
+          dt1_part2 <- fread(file_path,fill=TRUE,skip=n_line,select=c(product_type_column))
+          dt1 <<- rbind(dt1_part1, dt1_part2, fill=T)
+        }
+      },
+      finally = cat("\nFinished. \n")
+      #finally=print(dim(dt1))
+    );
+  }
+  # Function to data with filter product, date, column (no need to keep)
+  savefunc2 <- function(file_path,product_type_choose,product_type_column,date_column,
+                        parameter_column_name,parameter_column_value){
+    tryCatch(
+      expr    = {dt2 <<- fread(file_path,fill=TRUE,select=c(product_type_column,date_column,parameter_column_name,parameter_column_value)) %>%
+                            filter(V3 ==product_type_choose)
       },
       warning = function(w){
         cat('Warning: ', w$message, '\n\n');
@@ -204,12 +219,8 @@ server <- function(input, output, session) {
           cat('Found ', n_line2,'\n')
           dt2_part1 <- fread(file_path,fill=TRUE, nrows=n_line2-1,select=c(product_type_column,date_column,parameter_column_name,parameter_column_value))
           dt2_part2 <- fread(file_path,fill=TRUE,skip=n_line2,select=c(product_type_column,date_column,parameter_column_name,parameter_column_value))
-          if ( is.null(product_type_choose)){
-            dt2 <<- rbind(dt2_part1, dt2_part2, fill=T)
-          }else{
-            dt2 <<- rbind(dt2_part1, dt2_part2, fill=T)%>%
-              filter(V3 ==product_type_choose)  
-          }
+          dt2 <<- rbind(dt2_part1, dt2_part2, fill=T)%>%
+            filter(V3 ==product_type_choose)
         }
       },
       finally = cat("\nFinished. \n")

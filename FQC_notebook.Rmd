@@ -1,3 +1,11 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
 
 #BEGIN HERE----------------
 
@@ -235,7 +243,7 @@ dim(data_process)
 # Best to choose
 date_choose="2017-12-19"
 df_plot2 <- data_process %>% 
-  select(date_trans,date_filter,parameter_name,parameter_value) %>% 
+  select(date_trans,date,date_filter,parameter_name,parameter_value) %>% 
   filter(date_filter==ymd(date_choose))
 df_plot2
 ```
@@ -297,8 +305,9 @@ p1<-plot_ly(df_plot2,x =~date_trans, y = ~parameter_value) %>%
   add_trace(mode='lines+markers',name='Value')
 p2<-plot_ly(df_plot2,x =~date_trans, y = ~parameter_name) %>% 
   add_trace(mode='lines+markers',name='Frequency')
-p<-subplot(p1, p2,nrows=2,shareX = TRUE)
-p
+
+plotly::subplot(p1, p2,nrows=2,shareX = TRUE)
+
 ```
 
 ```{r}
@@ -317,7 +326,7 @@ p1<-plot_ly(df_plot_no_outlier,x =~date_trans, y = ~parameter_value) %>%
   add_trace(mode='lines+markers',name='Value')
 p2<-plot_ly(df_plot_no_outlier,x =~date_trans, y = ~parameter_name) %>% 
   add_trace(mode='lines+markers',name='Frequency')
-p<-subplot(p1, p2,nrows=2,shareX = TRUE)
+p<-plotly::subplot(p1, p2,nrows=2,shareX = TRUE)
 p
 ```
 ```{r}
@@ -394,13 +403,89 @@ head(df_plot_no_outlier)
 ```
 
 TRY OTHER METHOD:
-
 ```{r}
 #install.packages('highcharter')
 library(highcharter)
+```
 
-# Use the hchart function to generate a line chart with the data.
-hchart(df_plot_no_outlier, type = "line", hcaes(x = date_trans, y = parameter_value))
+```{r}
+dt2%>%
+  hchart(type = "line", hcaes(x = V6, y = V66))
+```
+
+```{r}
+df_plot_no_outlier%>%
+  hchart(type = "line", hcaes(x = as.character(date_trans), y = parameter_value))
+```
+```{r}
+#install.packages("dygraphs")
+library(dygraphs)
+df_plot_no_outlier
+dt2
+```
+```{r}
+Sys.timezone()
+tzone(data_time$date_trans)
+tzone(df_plot_no_outlier$date_trans)
+```
+
+```{r}
+str(dt2$V6)
+str(df_plot_no_outlier$date_trans)
+str(as.Date(df_plot_no_outlier$date_trans,format='%Y-%m-%d %H:%M:%S'))
+```
+
+```{r}
+# Switch to XTS format
+data <- xts(x = dt2$V66, 
+            order.by = mdy_hms(dt2$V6))
+# Add points
+plot_dygraph <- dygraph(data) %>%
+  dyOptions( drawPoints = TRUE, pointSize = 4,useDataTimezone = TRUE )%>% 
+  dyRangeSelector()
+plot_dygraph
+```
+
+
+```{r}
+# Switch to XTS format
+data <- xts(x = df_plot_no_outlier$parameter_value, 
+            order.by = df_plot_no_outlier$date_trans)
+# Add points
+p <- dygraph(data) %>%
+  dyOptions( drawPoints = TRUE, pointSize = 4,useDataTimezone = TRUE )%>% 
+  dyRangeSelector()
+p
+```
+```{r}
+df_plot_no_outlier
+```
+
+```{r}
+dygraph(df_plot_no_outlier %>% select(date_trans,parameter_value), main = "All", group = "lung-deaths")%>%
+  dyOptions( drawPoints = TRUE, pointSize = 4,useDataTimezone = TRUE )
+dygraph(df_plot_no_outlier %>% select(date_trans,parameter_name), main = "All", group = "lung-deaths")%>%
+  dyOptions( drawPoints = TRUE, pointSize = 4,useDataTimezone = TRUE )
+```
+```{r}
+dy_graph <- list(
+  dygraph(df_plot_no_outlier %>% select(date_trans,parameter_value), main = "db", group = "lung-deaths")%>%
+  dyOptions( drawPoints = TRUE, pointSize = 4,useDataTimezone = TRUE ),
+dygraph(df_plot_no_outlier %>% select(date_trans,parameter_name), main = "Frequency", group = "lung-deaths")%>%
+  dyOptions( drawPoints = TRUE, pointSize = 4,useDataTimezone = TRUE )
+)  # end list
+
+# render the dygraphs objects using htmltools
+htmltools::browsable(htmltools::tagList(dy_graph))
+```
+
+
+
+```{r}
+```
+
+
+```{r}
 ```
 
 
@@ -469,25 +554,6 @@ dt
 
 
 ```{r}
-#Plotly function
-output$plotly <- renderPlotly({
-    req(input$go_data_analyze_date)
-    p1<-plot_ly(data_one_date(),x =~date_trans, y = ~parameter_value) %>%
-      add_trace(mode='lines+markers',name='Value')
-    if (input$remove_frequency_chart){
-      p1
-    } else {
-      p2<-plot_ly(data_one_date(),x =~date_trans, y = ~parameter_freq) %>%
-        add_trace(mode='lines+markers',name='Frequency')
-      subplot(p1, p2,nrows=2,shareX = TRUE)
-      
-    }
-
-  })
-```
-
-
-```{r}
 plotly_chart <- function(data_one_date,check_input_remove_frequency_chart,
                          check_go_data_analyze_date){
   req(check_go_data_analyze_date)
@@ -498,7 +564,7 @@ plotly_chart <- function(data_one_date,check_input_remove_frequency_chart,
     } else {
       p2<-plot_ly(data_one_date,x =~date_trans, y = ~parameter_freq) %>%
         add_trace(mode='lines+markers',name='Frequency')
-      subplot(p1, p2,nrows=2,shareX = TRUE)
+      plotly::subplot(p1, p2,nrows=2,shareX = TRUE)
       
     }
 }
