@@ -8,8 +8,8 @@ library(lubridate)
 ```
 
 ```{r}
-#file='/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_3000_head.dat' 
-file='/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_3000.dat'# 3.6 GB
+file='/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_3000_head.dat' 
+#file='/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_3000.dat'# 3.6 GB
 #file<-'/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_E_series.dat' # 2.9 GB crack session (ram?)
 #file<-'/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_Ric.dat' # 2.8 GB OK
 data_head<-fread(file,fill=TRUE,nrows=5)
@@ -112,7 +112,7 @@ date_column='V6'
 ```{r}
 start.time <- Sys.time()
 tryCatch(
-  expr    = {dt2 <<- fread(file,fill=TRUE,select=c(product_type_column,                                                date_column,parameter_column_name,parameter_column_value)) %>% 
+  expr    = {dt2 <<- fread(file,fill=TRUE,select=c(product_type_column,date_column,parameter_column_name,parameter_column_value)) %>% 
     filter(V3 ==product_type)
   },
   warning = function(w){
@@ -134,6 +134,7 @@ time.taken <- end.time - start.time
 time.taken # 1.1207 mins , run lan 2: 46.15 s
 # Method 3: 43 s
 ```
+
 
 ```{r}
 object_size(dt2) # 60 MB
@@ -232,7 +233,7 @@ dim(data_process)
 
 ```{r}
 # Best to choose
-date_choose="2017-12-18"
+date_choose="2017-12-19"
 df_plot2 <- data_process %>% 
   select(date_trans,date_filter,parameter_name,parameter_value) %>% 
   filter(date_filter==ymd(date_choose))
@@ -327,6 +328,31 @@ p1<-plot_ly(df_plot_no_outlier,x =~date_trans, y = ~parameter_value) %>%
 #p<-subplot(p1, p2,nrows=2,shareX = TRUE)
 p1
 ```
+```{r}
+p1<-plot_ly(df_plot_no_outlier,x =~date_trans, y = ~parameter_value) %>% 
+  add_trace(mode='lines+markers',name='Value') %>% 
+  layout(
+    title = "FQC data daily",
+    xaxis = list(
+      rangeselector = list(
+        buttons = list(
+          list(
+            count = 30,
+            label = "min",
+            step = "minute",
+            stepmode = "backward"),
+          list(
+            count = 2,
+            label = "hour",
+            step = "hour",
+            stepmode = "backward"),
+          list(step = "all"))),
+
+      rangeslider = list(type = "date")),
+
+    yaxis = list(title = "Value"))
+p1
+```
 
 
 ```{r}
@@ -361,12 +387,122 @@ p1%>%
   add_trace(y = ~USL, name = 'USL', mode = 'lines',color="rgba(255, 0, 0, 0.6)") %>% 
   add_trace(y = ~LSL, name = 'LSL', mode = 'lines',color="rgb(20, 20, 20)")
 ```
+Try another chart:
+High chart
+```{r}
+head(df_plot_no_outlier)
+```
+
+TRY OTHER METHOD:
 
 ```{r}
+#install.packages('highcharter')
+library(highcharter)
+
+# Use the hchart function to generate a line chart with the data.
+hchart(df_plot_no_outlier, type = "line", hcaes(x = date_trans, y = parameter_value))
 ```
 
 
 ```{r}
+# Please choose product_type:
+file='/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_3000_head.dat' 
+#product_type='31AA015'
+product_type_choose='31AA015'
+#product_type='31A007G_P'
+# Please choose parameter column to show
+parameter_column_name='V65'
+parameter_column_value='V66'
+# Default time column:
+product_type_column='V3'
+date_column='V6'
+
+savefunc2 <- function(file_path,product_type_column,product_type_choose=NULL,date_column=NULL,
+                        parameter_column_name=NULL,parameter_column_value=NULL){
+    tryCatch(
+      expr    = {
+        if ( is.null(product_type_choose)){
+          print('not filter')
+          dt2 <<- fread(file_path,fill=TRUE,select=c(product_type_column,date_column,parameter_column_name,parameter_column_value))}
+        else{
+          print('filter')
+          dt2 <<- fread(file_path,fill=TRUE,select=c(product_type_column,date_column,parameter_column_name,parameter_column_value)) %>%
+          filter(V3 ==product_type_choose)}
+        
+      },
+      warning = function(w){
+        cat('Warning: ', w$message, '\n\n');
+        n_line2 <- as.numeric(gsub('Stopped early on line (\\d+)\\..*','\\1',w$message))
+        if (!is.na(n_line2)) {
+          cat('Found ', n_line2,'\n')
+          dt2_part1 <- fread(file_path,fill=TRUE, nrows=n_line2-1,select=c(product_type_column,date_column,parameter_column_name,parameter_column_value))
+          dt2_part2 <- fread(file_path,fill=TRUE,skip=n_line2,select=c(product_type_column,date_column,parameter_column_name,parameter_column_value))
+          if ( is.null(product_type_choose)){
+            dt2 <<- rbind(dt2_part1, dt2_part2, fill=T)
+          }else{
+            dt2 <<- rbind(dt2_part1, dt2_part2, fill=T)%>%
+              filter(V3 ==product_type_choose)  
+          }
+          
+        }
+      },
+      finally = cat("\nFinished. \n")
+    );
+}
+
+
+dt<-savefunc2(file,product_type_column,product_type_choose,date_column,parameter_column_name,parameter_column_value)
+colnames(dt) <- c("product_type", "date","parameter_freq","parameter_value")
+dt<-dt %>%
+  mutate( date_trans=mdy_hms(date), # must have mdy_hms for convert date time
+          date_filter=as_date(date_trans),
+          )
+dt
+```
+
+
+
+```{r}
+dt<-savefunc2(file,product_type_column)
+dt
+```
+
+
+```{r}
+#Plotly function
+output$plotly <- renderPlotly({
+    req(input$go_data_analyze_date)
+    p1<-plot_ly(data_one_date(),x =~date_trans, y = ~parameter_value) %>%
+      add_trace(mode='lines+markers',name='Value')
+    if (input$remove_frequency_chart){
+      p1
+    } else {
+      p2<-plot_ly(data_one_date(),x =~date_trans, y = ~parameter_freq) %>%
+        add_trace(mode='lines+markers',name='Frequency')
+      subplot(p1, p2,nrows=2,shareX = TRUE)
+      
+    }
+
+  })
+```
+
+
+```{r}
+plotly_chart <- function(data_one_date,check_input_remove_frequency_chart,
+                         check_go_data_analyze_date){
+  req(check_go_data_analyze_date)
+  p1<-plot_ly(data_one_date,x =~date_trans, y = ~parameter_value) %>%
+      add_trace(mode='lines+markers',name='Value')
+    if (check_input_remove_frequency_chart){
+      p1
+    } else {
+      p2<-plot_ly(data_one_date,x =~date_trans, y = ~parameter_freq) %>%
+        add_trace(mode='lines+markers',name='Frequency')
+      subplot(p1, p2,nrows=2,shareX = TRUE)
+      
+    }
+}
+plotly_chart(data_one_date(),input$remove_frequency_chart,input$go_data_analyze_date)
 ```
 
 
