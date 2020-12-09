@@ -1,0 +1,434 @@
+---
+title: "Control chart"
+output: html_document
+---
+#**dfphase1 library**
+```{r}
+# A simulated example
+#install.packages("dfphase1")
+library(dfphase1)
+set.seed(12345)
+y <- matrix(rt(100,3),5)
+y[,20] <- y[,20]+3
+y
+```
+
+```{r}
+shewhart(y)
+```
+```{r}
+# Reproduction of the control charts shown
+# by Jones-Farmer et. al. (2009,2010)
+data(colonscopy)
+colonscopy
+```
+
+```{r}
+
+u <- shewhart.normal.limits(NROW(colonscopy),NCOL(colonscopy),stat="lRank",FAP=0.1)
+# control limits based on a limited number of replications
+# to avoid a (relatively) long execution time
+shewhart(colonscopy,stat="lRank",limits=u,L=10000)
+shewhart(colonscopy,stat="sRank",FAP=0.1,L=10000)
+```
+
+
+#**ggQC Control Charts**
+```{r}
+library(tidyverse)
+library(ggQC)
+```
+
+
+```{r}
+set.seed(5555)
+Process_Data <- 
+  data.frame(
+   Process=rep(c("A"), each = 30), #Process A 
+   Run_Number=c(1:30),             #Run Order    
+   Value = c(rnorm(n = 30, mean = 30.5, sd = 1)) #Process A Random Data
+   )
+Process_Data
+```
+
+
+```{r}
+### Make the plot
+XmR_Plot <- 
+  ggplot(Process_Data, aes(x = Run_Number, y = Value)) + #init ggplot
+  geom_point() + geom_line() + # add the points and lines
+  stat_QC(method = "XmR",      # specify QC charting method
+          auto.label = T,      # Use Autolabels
+          label.digits = 2,    # Use two digit in the label
+          show.1n2.sigma = T   # Show 1 and two sigma lines
+          ) +  
+  scale_x_continuous(expand =  expand_scale(mult = .15))  # Pad the x-axis
+ 
+### Draw the plot - Done
+XmR_Plot
+```
+
+By building upon the ggplot framework, you get a high level of control over the plot details such as points and lines etc. In addition, if you want to put XmR and mR data on the same plot, you can. Just make multiple calls to the stat_QC() command, as shown below.
+```{r}
+### Two stat_QC calls
+XmR_Plot <- 
+  ggplot(Process_Data, aes(x = Run_Number, y = Value)) + #init ggplot
+  geom_point() + geom_line() + #add the points and lines
+  stat_QC(method = "XmR", #specify QC charting method
+          auto.label = T, # Use Autolabels
+          label.digits = 2, #Use two digit in the label
+          show.1n2.sigma = T  #Show 1 and two sigma lines
+          ) +  
+  stat_QC(method="mR") +
+  scale_x_continuous(expand =  expand_scale(mult = .15))  # Pad the x-axis
+ 
+### Draw the plot - Done
+XmR_Plot
+```
+
+# Violation Analysis
+
+Same Side: 8 or more consecutive, same-side points
+1 Sigma: 4 or more consecutive, same-side points exceeding 1 sigma
+2 Sigma: 2 or more consecutive, same-side points exceeding 2 sigma
+3 Sigma: any points exceeding 3 sigma
+```{r}
+#Uses the same data as previous example. 
+ 
+QC_Violations <- 
+  ggplot(Process_Data, aes(x = Run_Number, y = Value)) + #init ggplot
+  stat_qc_violations(method = "XmR" 
+                     #show.facets = 4 #if you just want facet 4
+                     )
+QC_Violations
+```
+# Capability Analysis
+
+```{r}
+# Uses the same data as the first example
+CapabilityAnaylsis <- 
+ ggplot(Process_Data, aes(x = Value)) + #init ggplot
+  geom_histogram(binwidth = .75, color="purple") + #make the histogram
+  stat_QC_Capability(
+    LSL=25, USL=37,                    #Specify LSL and USL
+    show.cap.summary = c("Cp", "Cpk"), #selected summary
+    digits = 2,                        #report two digits
+    method="XmR") +                    #Use the XmR method
+scale_x_continuous(expand =  expand_scale(mult = c(0.15,.65))) #pad the X-axis 
+ 
+#plot the graph
+CapabilityAnaylsis
+```
+# Pareto Analysis
+```{r}
+#load your data
+Data4Pareto <- data.frame(
+  KPI = c("Customer Service Time", "Order Fulfillment", "Order Processing Time",
+        "Order Production Time", "Order Quality Control Time", "Rework Time",
+        "Shipping"),
+  Time = c(1.50, 38.50, 3.75, 23.08, 1.92, 3.58, 73.17)
+) 
+ 
+#make the plot
+ggplot(Data4Pareto, aes(x=KPI, y=Time)) +
+ stat_pareto(point.color = "red",
+             point.size = 3,
+             line.color = "black",
+             bars.fill = c("blue", "orange")
+             ) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust=0.5))
+ 
+#done
+```
+
+# **qcc library**
+```{r}
+chartdata <- read.table(header = FALSE, text = "
+  0.731
+  0.734
+  0.733
+  0.734
+  0.733
+  0.734
+  0.734
+  0.733
+  0.734
+  0.715
+  0.734
+  0.732
+  0.735
+  0.734
+  0.734
+  0.731
+  0.731
+  0.735
+  0.713
+  0.731
+  0.715
+  0.736
+  0.733
+  0.733
+  0.732
+  0.732
+  0.733
+  0.715
+  0.734
+  0.734
+  ")
+```
+
+
+```{r}
+#install.packages("qcc")
+library(qcc)
+```
+
+```{r}
+chartdata
+```
+
+```{r}
+qcc(data = chartdata, # The dataset
+    type = "xbar.one", # The chart type (in this case it lets qcc know that n = 1)
+    plot = TRUE) # Display the plot
+```
+Create a x-bar chart for n >1 and customize the chart
+
+Now we will plot an x-bar chart where n > 1. First we will read in the data. We will again do this using read.table but this time we will have 25 samples of n = 5 where each observation is contained in a different column.
+```{r}
+chartdata2 <- read.table(header = FALSE, text = "
+  0.07705     0.076030001 0.076959997 0.075489998 0.076920003
+  0.078160003 0.077119999 0.076250002 0.076690003 0.076470003
+  0.077550001 0.077079996 0.077129997 0.076839998 0.077440001
+  0.07581     0.07728     0.076549999 0.077760004 0.077540003
+  0.077459998 0.079109997 0.077830002 0.07711     0.078670003
+  0.0766      0.078039996 0.076240003 0.077660002 0.075900003
+  0.077919997 0.074440002 0.078419998 0.077370003 0.074500002
+  0.077299997 0.076370001 0.075539999 0.076800004 0.078280002
+  0.075460002 0.076229997 0.077959999 0.07491     0.078620002
+  0.07931     0.077420004 0.07519     0.07784     0.07649
+  0.076609999 0.076860003 0.077720001 0.075790003 0.078380004
+  0.078050002 0.075450003 0.078400001 0.076810002 0.077770002
+  0.077289999 0.078170002 0.077260002 0.076849997 0.075120002
+  0.077639997 0.076820001 0.077200003 0.079180002 0.078299999
+  0.077610001 0.075630002 0.079350002 0.076920003 0.075800002
+  0.076509997 0.076970004 0.077919997 0.078189999 0.077660002
+  0.07863     0.077200003 0.077310003 0.076530002 0.075680003
+  0.075730003 0.07807     0.075580001 0.074589998 0.076499999
+  0.076849997 0.076140001 0.077370003 0.075790003 0.07705
+  0.076370001 0.076700002 0.075620003 0.077399999 0.076559998
+  0.076180004 0.078189999 0.07626     0.076580003 0.077459998
+  0.076059997 0.075350001 0.077310003 0.07553     0.077990003
+  0.076889999 0.075240001 0.076609999 0.077090003 0.079120003
+  0.07762     0.078919999 0.078730002 0.076849997 0.077660002
+  0.078299999 0.075479999 0.076619998 0.078780003 0.07728")
+chartdata2
+```
+
+```{r}
+xbar_chart2 <- qcc(data = chartdata2,
+                   type = "xbar",
+                   sizes = 5,
+                   title = "Sample X-bar Chart Title", # Replacement title
+                   digits = 2, # Limit the signifciant figures
+                   plot = TRUE)
+```
+
+
+```{r}
+xbar_chart2
+```
+We can improve the plot visually by customizing the colors using the following code to set the background to grey and the margins to white.
+
+```{r}
+qcc.options(bg.margin = "white", bg.figure = "gray95")
+
+```
+
+
+```{r}
+xbar_chart2 <- qcc(data = chartdata2,
+                   type = "R",
+                   sizes = 5,
+                   title = "Sample R Chart Title",
+                   digits = 2,
+                   plot = TRUE)
+```
+
+Create an R chart
+
+Finally, to create an r chart we repeat the process above except now we will specify that we want an r chart instead of an x-bar chart. Note that the color scheme remains altered since we changed qcc.options above.
+```{r}
+xbar_chart2 <- qcc(data = chartdata2,
+                   type = "R",
+                   sizes = 5,
+                   title = "Sample R Chart Title",
+                   digits = 2,
+                   plot = TRUE)
+```
+```{r}
+# loading package
+library(qcc)
+# Loading the piston rings data
+data(pistonrings)
+attach(pistonrings)
+head(pistonrings)
+```
+
+
+```{r}
+diameter <- qcc.groups(diameter, sample)
+head(diameter)
+summary(diameter)
+```
+
+
+```{r}
+obj <- qcc(diameter[1:30,], type="R")
+```
+
+
+```{r}
+summary(obj)
+```
+
+
+```{r}
+obj <- qcc(diameter[1:30,], type="xbar")
+```
+
+
+```{r}
+summary(obj)
+```
+Let’s see what happen if I change the nsigma to 2.
+```{r}
+obj <- qcc(diameter[1:30,], type="xbar",nsigmas = 2)
+```
+As it can be seen from the plot, 3 observation points goes out of control. This is because we make control limits tighter.
+Let’s see for nsigma=1.
+
+```{r}
+obj <- qcc(diameter[1:30,], type="xbar",nsigmas = 1)
+```
+
+Step 4
+
+The last step is to test for new data. Now, so far, we know that for nsigma=3, the process is in control. We can use the computed control limits for monitoring new sample data from the same process.
+```{r}
+obj <- qcc(diameter[1:30,], type="xbar",newdata=diameter[31:40,])
+```
+
+
+```{r}
+data(orangejuice)
+orangejuice
+```
+
+
+```{r}
+library(tidyverse)
+library(qcc)
+library(scales)
+
+data("orangejuice")
+orangejuice
+u_chart_obj <- with(orangejuice, qcc(D, sizes = size, type = 'u'))
+
+oj <- mutate(orangejuice, 
+             row_id = 1:nrow(orangejuice),
+             # identify rows of interest
+             beyond_limits = row_id %in% u_chart_obj$violations$beyond.limits,
+             violating_runs = row_id %in% u_chart_obj$violations$violating.runs,
+             # data for plotting control limits
+             center = u_chart_obj$center,
+             lcl = u_chart_obj$limits[1, 'LCL'],
+             ucl = u_chart_obj$limits[1, 'UCL'])
+
+oj
+```
+```{r}
+update_geom_defaults('point', list(size = 3))
+
+ggplot(oj, aes(sample, D/size)) + 
+  # create a basic chart with dots and lines
+  geom_line(color = 'gray', size = 0.5) +
+  geom_point() + 
+  # mark certain points red or gold
+  geom_point(color = 'red', data = filter(oj, beyond_limits)) +
+  geom_point(color = 'gold', data = filter(oj, violating_runs)) +
+  # add the control limits and center line
+  geom_hline(aes(yintercept = lcl), linetype = 'dashed') +
+  geom_hline(aes(yintercept = ucl), linetype = 'dashed') +
+  geom_hline(aes(yintercept = center)) +
+  # express y axis labels in 'per million'
+  scale_y_continuous(labels = unit_format(scale = 1e6, unit = '')) +
+  # misc cleanup
+  theme_light() +
+  labs(x = 'Sample Number', y = 'Defects per million units')
+```
+
+
+```{r}
+data2 <- data %>%
+  arrange(Date) %>%
+  mutate(date.diff = c(NA, diff(Date))) %>%
+  mutate(is.gap = !is.na(date.diff) & date.diff > median(date.diff, na.rm = TRUE)) %>%
+  mutate(period.id = cumsum(is.gap))
+head(data2)
+```
+
+
+```{r}
+data2 <- data2 %>%
+  select(-date.diff, -is.gap) %>% # drop unneeded columns
+  tidyr::gather(color, y, -Date, -period.id) %>%
+  mutate(color = factor(color,
+                        levels = c("Return", "PredReturn")))
+head(data2)
+```
+
+```{r}
+p <- ggplot(data2,
+       aes(x = Date, y = y, color = color)) +
+  geom_line() +
+  facet_grid(~ period.id, scales = "free_x", space = "free_x") +
+  scale_color_manual(values = c("Return" = "black",
+                                "PredReturn" = "red")) +
+  theme_light()
+
+p
+```
+
+
+```{r}
+p +
+  scale_x_datetime(expand = c(0, 0),             # remove space within each panel
+                   breaks = "5 days") +          # specify desired time breaks
+  theme(panel.spacing = unit(0, "pt"),           # remove space between panels
+        axis.text.x = element_text(angle = 90))  # rotate x-axis text
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+
+```{r}
+```
+

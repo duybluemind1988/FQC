@@ -6,15 +6,18 @@ library(plotly)
 library(psych)
 library(dygraphs)
 library(xts)
+library(qcc)
 # run parallel for Data.table
 setDTthreads(threads = 0)
 getDTthreads(verbose=TRUE) 
 #### user interface
-path<-'/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_3000_head.dat' # 25 MB OK
+#path<-'/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_3000_head.dat' # 25 MB OK
 #path<-'/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_3000_tail.dat' # 25 MB OK
 #path<-'/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_3000.dat' # 3.6GB OK
 #path<-'/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_E_series.dat' # 2.9 GB crack session (ram?)
 #path<-'/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_Ric.dat' # 2.8 GB OK
+#path<-'/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_4000.dat' # 0.8 GB OK
+path<-'/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_4000_tail.dat' # 0.8 GB OK
 
 #path test from windown:
 #path<-'//Vn01w2k16v18/data/Copyroom/Test_software/Data/V04R-V04R-SQLData_3000_head.dat'
@@ -37,7 +40,7 @@ ui <- fluidPage(
       selectInput("parameter_column_value", "Choose parameter column value", choices=NULL, selected=NULL),
       selectInput("date_column", "Choose date column", choices=NULL, selected=NULL),
       actionButton("go_data_analyze", "Process Data (wait ~ 1 min)",style="color: #fff; background-color: #337ab7;"),
-      dateInput("date_choose", "Date (y-m-d):", value = "2017-12-22"),
+      dateInput("date_choose", "Date (y-m-d):", value = "2020-06-20"),
       "Min and Max date:",
       textOutput('min_date_text'),
       textOutput('max_date_text'),
@@ -65,7 +68,9 @@ ui <- fluidPage(
       "Descriptives statistics remove outlier:",
       tableOutput("descriptives_stat_remove_outlier"),
       "Filter outlier for smooth chart:",
-      htmlOutput("dygraph_filter_outlier")
+      htmlOutput("dygraph_filter_outlier"),
+      "QCC chart:",
+      plotOutput("qcc_chart"),
 
 
     )#end mainpanel
@@ -166,7 +171,12 @@ server <- function(input, output, session) {
     plot_dygraph(data_one_date_no_outlier(),input$remove_frequency_chart,input$go_data_analyze_date)
   })
   
-  
+  # Qcc chart after filter outlier:
+  output$qcc_chart<-renderPlot({
+    qcc(data_one_date_no_outlier()$parameter_value, type="xbar.one", std.dev = "SD",
+        labels=format(data_one_date_no_outlier()$date_trans,"%b-%d-%H"),axes.las = 2,xlab="")
+  })
+ 
   
   #dygraphs function 2
   plot_dygraph <-function(data_one_date,check_input_remove_frequency_chart,

@@ -1,0 +1,334 @@
+---
+title: "R Notebook"
+output: html_document
+---
+
+#BEGIN HERE----------------
+
+```{r}
+library(data.table)
+library(tidyverse)
+library(lubridate)
+setDTthreads(threads = 0)
+getDTthreads(verbose=TRUE) 
+```
+
+```{r}
+#file='/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_3000_head.dat' 
+#file='/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_4000.dat' 
+file='/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_4000_tail.dat'
+#file='/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_3000.dat'# 3.6 GB
+#file<-'/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_E_series.dat' # 2.9 GB crack session (ram?)
+#file<-'/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_Ric.dat' # 2.8 GB OK
+data_head<-fread(file,fill=TRUE,nrows=5)
+data_head # month/day/year
+```
+# Cut data
+```{r}
+#min line 4000 : 9/5/2019, max line 4000: 4/11/2020
+# dim line 4000 :1404350 
+#data_cut_off<-fread(file,fill=TRUE,skip=804350)
+#dim(data_cut_off)
+#data_cut_off
+```
+
+```{r}
+#fwrite(data_cut_off,file='/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_4000_tail.dat')
+```
+
+# Begin analysis
+```{r}
+#install.packages('doParallel')
+#Method 1
+#library(doParallel)
+#no_cores <- detectCores()
+#print(no_cores)
+#cl <- makeCluster(no_cores)  
+#registerDoParallel(cl)  
+
+```
+```{r}
+#Method 2
+#library(doParallel)
+#cl <- makePSOCKcluster(5)  
+#registerDoParallel(cl)  
+```
+
+
+```{r}
+start.time <- Sys.time()
+
+product_type_column='V3'
+tryCatch(
+  expr    = {dt1 <<- fread(file,fill=TRUE,select=c(product_type_column))},
+  warning = function(w){
+    cat('Warning: ', w$message, '\n\n');
+    n_line <- as.numeric(gsub('Stopped early on line (\\d+)\\..*','\\1',w$message))
+    if (!is.na(n_line)) {
+      cat('Found ', n_line,'\n')
+      dt1_part1 <- fread(file,fill=TRUE, nrows=n_line-1,select=c(product_type_column))
+      dt1_part2 <- fread(file,fill=TRUE,skip=n_line,select=c(product_type_column))
+      dt1 <<- rbind(dt1_part1, dt1_part2, fill=T)
+    }
+  },
+  finally = cat("\nFinished. \n")
+  #finally=.Call(CfreadCleanup)
+);
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken 
+# No Parallel: 1.118 mins
+# doParallel method 1: 1.097 mins --> run lan 2 la 58 or 52 s 
+# doParallel method 2: 1.118 mins
+# doParallel method 3: 51 s
+```
+```{r}
+#install.packages("pryr")
+library(pryr)
+object_size(dt1) # 43.7 MB
+```
+
+
+```{r}
+#product_type_column='V3'
+#dt1<-fread(file,fill=TRUE,select=c(product_type_column))
+dim(dt1)
+head(dt1)
+tail(dt1)
+```
+```{r}
+class(dt1)
+```
+
+
+```{r}
+product_all <- as.data.frame(table(dt1)) %>% 
+  arrange(desc(Freq)) %>% 
+  top_n(20,Freq)
+product_all
+```
+```{r}
+product_all %>% 
+  ggplot(aes(x= reorder(dt1, -Freq),y=Freq)) +
+  geom_bar(stat="identity",fill="steelblue")+
+  theme(axis.text.x=element_text(angle=90))
+```
+#**Choose all parameter**
+```{r}
+# Please choose product_type:
+product_type='3105471-p41AA015_8Q'
+#product_type='31A007G_P'
+# Please choose parameter column to show
+parameter_column_name='V65'
+parameter_column_value='V66'
+# Default time column:
+product_type_column='V3'
+date_column='V6'
+```
+
+```{r}
+start.time <- Sys.time()
+tryCatch(
+  expr    = {dt2 <<- fread(file,fill=TRUE,select=c(product_type_column,date_column,parameter_column_name,parameter_column_value)) %>% 
+    filter(V3 ==product_type)
+  },
+  warning = function(w){
+    cat('Warning: ', w$message, '\n\n');
+    n_line2 <- as.numeric(gsub('Stopped early on line (\\d+)\\..*','\\1',w$message))
+    if (!is.na(n_line2)) {
+      cat('Found ', n_line2,'\n')
+      dt2_part1 <- fread(file,fill=TRUE, nrows=n_line2-1,select=c(product_type_column,date_column,parameter_column_name,parameter_column_value))
+      dt2_part2 <- fread(file,fill=TRUE,skip=n_line2,select=c(product_type_column,date_column,
+                                                          parameter_column_name,parameter_column_value))
+      dt2 <<- rbind(dt2_part1, dt2_part2, fill=T)%>% 
+      filter(V3 ==product_type)
+    }
+  },
+  finally = cat("\nFinished. \n")
+);
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken # 1.1207 mins , run lan 2: 46.15 s
+# Method 3: 43 s
+```
+
+
+```{r}
+dim(dt2) # 196766
+head(dt2)
+tail(dt2)
+```
+
+```{r}
+colnames(dt2) <- c("product_type", "date","parameter_freq","parameter_value")
+dt2
+```
+
+
+```{r}
+print(dim(dt2))
+sl<-object.size(dt2)
+print(sl, units = "auto", standard = "SI") 
+```
+```{r}
+data_process <- dt2 %>%
+  mutate( date_trans=mdy_hms(date), # must have mdy_hms for convert date time
+          date_filter=as_date(date_trans),
+         )
+head(data_process)
+tail(data_process)
+```
+
+```{r}
+#rm(dt2)
+```
+
+```{r}
+min(data_process$date)
+max(data_process$date)
+```
+
+#**Select one date**
+```{r}
+# Best to choose
+date_choose="2020-06-10"
+df_plot <- data_process %>% 
+  select(date_trans,date,date_filter,parameter_freq,parameter_value) %>% 
+  filter(date_filter==ymd(date_choose))
+df_plot
+```
+#**Descreptive statistics**
+```{r}
+summary(df_plot)
+```
+```{r}
+#install.packages('pastecs')
+library(pastecs)
+stat.desc(df_plot %>% select(parameter_freq,parameter_value))
+```
+```{r}
+#install.packages('Hmisc')
+library(Hmisc)
+describe(df_plot %>% select(parameter_freq,parameter_value))
+```
+
+```{r}
+#install.packages('psych')
+library(psych)
+describe(df_plot %>% select(parameter_freq,parameter_value))
+```
+#**Remove outlier**
+```{r}
+select_data<-df_plot$parameter_value
+Q1 <- quantile(select_data, .25)
+Q3 <- quantile(select_data, .75)
+IQR <- IQR(select_data)
+k=3
+df_plot_no_outlier <- subset(df_plot, select_data> (Q1 - k*IQR) & select_data< (Q3 + k*IQR))
+
+print(dim(df_plot))
+print(dim(df_plot_no_outlier))
+```
+
+#**PLOT**
+```{r}
+#install.packages('highcharter')
+library(dygraphs)
+```
+
+```{r}
+df_plot
+```
+```{r}
+# Plot value only:
+plot_dygraph <- dygraph(df_plot %>% select(date_trans,parameter_value)) %>%
+  dyOptions( drawPoints = TRUE, pointSize = 4,useDataTimezone = TRUE )%>% 
+  dyRangeSelector()
+#plot_dygraph
+```
+
+```{r}
+# Plot value only:
+plot_dygraph <- dygraph(df_plot_no_outlier %>% select(date_trans,parameter_value)) %>%
+  dyOptions( drawPoints = TRUE, pointSize = 4,useDataTimezone = TRUE )%>% 
+  dyRangeSelector()
+plot_dygraph
+```
+
+```{r}
+# Plot value and frequency :
+dy_graph <- list(
+  dygraph(df_plot_no_outlier %>% select(date_trans,parameter_value), main = "db", group = "chart")%>%
+  dyOptions( drawPoints = TRUE, pointSize = 4,useDataTimezone = TRUE ),
+dygraph(df_plot_no_outlier %>% select(date_trans,parameter_freq), main = "Frequency", group = "chart")%>%
+  dyOptions( drawPoints = TRUE, pointSize = 4,useDataTimezone = TRUE )
+)  # end list
+
+# render the dygraphs objects using htmltools
+htmltools::browsable(htmltools::tagList(dy_graph))
+```
+#**Control chart investigate**
+
+```{r}
+data_research<-df_plot_no_outlier %>% select(date_trans,parameter_value)
+data_research
+```
+
+
+```{r}
+#install.packages("ggQC")
+library(qcc)
+```
+# Continuous one-at-time data
+```{r}
+qcc(data_research$parameter_value, type="xbar.one", std.dev = "SD")
+```
+
+
+```{r}
+q2 = qcc(data_research$parameter_value, type="xbar.one", std.dev = "SD",
+         labels=format(data_research$date_trans,"%b-%d-%H"),axes.las = 2,xlab="")
+summary(q2)
+
+```
+
+```{r}
+oj <- mutate(data_research, 
+             row_id = 1:nrow(data_research),
+             # identify rows of interest
+             beyond_limits = row_id %in% q2$violations$beyond.limits,
+             violating_runs = row_id %in% q2$violations$violating.runs,
+             # data for plotting control limits
+             center = q2$center,
+             lcl = q2$limits[1, 'LCL'],
+             ucl = q2$limits[1, 'UCL'])
+
+oj
+```
+
+
+```{r}
+update_geom_defaults('point', list(size = 3))
+
+ggplot(oj, aes(date_trans, parameter_value)) + 
+  # create a basic chart with dots and lines
+  geom_line(color = 'gray', size = 0.5) +
+  geom_point() + 
+  # mark certain points red or gold
+  geom_point(color = 'red', data = filter(oj, beyond_limits)) +
+  geom_point(color = 'gold', data = filter(oj, violating_runs)) +
+  # add the control limits and center line
+  geom_hline(aes(yintercept = lcl), linetype = 'dashed') +
+  geom_hline(aes(yintercept = ucl), linetype = 'dashed') +
+  geom_hline(aes(yintercept = center)) +
+  # express y axis labels in 'per million'
+  scale_y_continuous(labels = unit_format(scale = 1e6, unit = '')) +
+  # misc cleanup
+  theme_light() +
+  labs(x = 'Sample Number', y = 'Defects per million units')
+```
+
+
+```{r}
+```
+
