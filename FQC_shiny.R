@@ -12,12 +12,13 @@ setDTthreads(threads = 0)
 getDTthreads(verbose=TRUE) 
 #### user interface
 #path<-'/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_3000_head.dat' # 25 MB OK
-#path<-'/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_3000_tail.dat' # 25 MB OK
+path<-'/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_3000_tail.dat' # 25 MB OK
+#path<-'/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_4000_tail.dat' # 0.8 GB OK
 #path<-'/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_3000.dat' # 3.6GB OK
 #path<-'/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_E_series.dat' # 2.9 GB crack session (ram?)
 #path<-'/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_Ric.dat' # 2.8 GB OK
 #path<-'/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_4000.dat' # 0.8 GB OK
-path<-'/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_4000_tail.dat' # 0.8 GB OK
+
 
 #path test from windown:
 #path<-'//Vn01w2k16v18/data/Copyroom/Test_software/Data/V04R-V04R-SQLData_3000_head.dat'
@@ -71,6 +72,8 @@ ui <- fluidPage(
       htmlOutput("dygraph_filter_outlier"),
       "QCC chart:",
       plotOutput("qcc_chart"),
+      "QCC summary:",
+      verbatimTextOutput("qcc_summary"),
 
 
     )#end mainpanel
@@ -176,7 +179,11 @@ server <- function(input, output, session) {
     qcc(data_one_date_no_outlier()$parameter_value, type="xbar.one", std.dev = "SD",
         labels=format(data_one_date_no_outlier()$date_trans,"%b-%d-%H"),axes.las = 2,xlab="")
   })
- 
+  # Summary qcc chart
+  output$qcc_summary <-renderPrint({
+    summary(qcc(data_one_date_no_outlier()$parameter_value, type="xbar.one", std.dev = "SD",
+                labels=format(data_one_date_no_outlier()$date_trans,"%b-%d-%H"),axes.las = 2,xlab=""))
+  })
   
   #dygraphs function 2
   plot_dygraph <-function(data_one_date,check_input_remove_frequency_chart,

@@ -248,11 +248,27 @@ plot_dygraph <- dygraph(df_plot %>% select(date_trans,parameter_value)) %>%
 ```
 
 ```{r}
+str(df_plot_no_outlier)
+```
+
+```{r}
 # Plot value only:
 plot_dygraph <- dygraph(df_plot_no_outlier %>% select(date_trans,parameter_value)) %>%
-  dyOptions( drawPoints = TRUE, pointSize = 4,useDataTimezone = TRUE )%>% 
+  dyOptions( drawPoints = TRUE, pointSize = 4,useDataTimezone = TRUE)%>% 
   dyRangeSelector()
 plot_dygraph
+```
+```{r}
+class(df_plot_no_outlier)
+```
+```{r}
+# create the time series
+temperature <- ts(frequency = 12, start = c(1980, 1),
+              data = c(7.0, 6.9, 9.5, 14.5, 18.2, 21.5, 
+                       25.2, 26.5, 23.3, 18.3, 13.9, 9.6))
+
+class(temperature)
+temperature
 ```
 
 ```{r}
@@ -274,12 +290,13 @@ data_research<-df_plot_no_outlier %>% select(date_trans,parameter_value)
 data_research
 ```
 
-
+# Continuous one-at-time data
 ```{r}
 #install.packages("ggQC")
 library(qcc)
+library(scales)
 ```
-# Continuous one-at-time data
+
 ```{r}
 qcc(data_research$parameter_value, type="xbar.one", std.dev = "SD")
 ```
@@ -291,7 +308,7 @@ q2 = qcc(data_research$parameter_value, type="xbar.one", std.dev = "SD",
 summary(q2)
 
 ```
-
+# Try to modify qcc for better flexible
 ```{r}
 oj <- mutate(data_research, 
              row_id = 1:nrow(data_research),
@@ -326,6 +343,176 @@ ggplot(oj, aes(date_trans, parameter_value)) +
   # misc cleanup
   theme_light() +
   labs(x = 'Sample Number', y = 'Defects per million units')
+```
+
+# Hide blank space with no x-values 
+```{r}
+data_research
+```
+We can identify time gaps by comparing the time difference between consecutive time stamps. Here, the logic I used defines a gap as any time difference larger than the median of all time differences. You may want to change that to some other value (e.g. 2 days? 1 week?) depending on your context:
+```{r}
+date_diff <- 360 # 6 hour
+data2 <- data_research %>%
+  arrange(date_trans) %>%
+  mutate(date.diff = c(NA, diff(date_trans))) %>%
+  #mutate(is.gap = !is.na(date.diff) & date.diff > median(date.diff, na.rm = TRUE)) %>%
+  mutate(is.gap = !is.na(date.diff) & date.diff > date_diff) %>%
+  mutate(period.id = cumsum(is.gap))
+head(data2)
+```
+```{r}
+count(data2,is.gap)
+```
+
+```{r}
+describe(data2)
+```
+
+Now each period.id value corresponds to a subset of data without major time differences within its rows. We can further wrangle this data by converting it to long format:
+```{r}
+data2 <- data2 %>%
+  select(-date.diff, -is.gap) %>% # drop unneeded columns
+  tidyr::gather(color, y, -date_trans, -period.id)
+
+head(data2)
+```
+Pass this data to ggplot(), facet by time periods with free scales, & you'd have eliminated the blank spaces from the earlier plot above:
+
+```{r}
+p <- ggplot(data2,
+       aes(x = date_trans, y = y)) +
+      geom_line() +
+      facet_grid(~ period.id, scales = "free_x", space = "free_x") +
+      theme_light()+
+      scale_x_datetime(expand = c(0, 0),             # remove space within each panel
+                       breaks = "5 days") +          # specify desired time breaks
+      theme(panel.spacing = unit(0, "pt"),           # remove space between panels
+            axis.text.x = element_text(angle = 90))  # rotate x-axis text
+
+p 
+```
+```{r}
+library(xts) # convert date time to dygraph right format
+```
+
+```{r}
+data2
+str(data2)
+```
+
+```{r}
+data3<-setDT(data2) # convert to data table from data frame
+str(data3)
+count(data3,period.id)
+```
+```{r}
+unique(data3$period.id)
+
+for (i in unique(data3$period.id)) {
+  print(i)
+}
+```
+
+```{r}
+# Add points
+plot_dygraph <- dygraph(data3 %>% select(date_trans,y)) %>%
+  dyOptions( drawPoints = TRUE, pointSize = 4,useDataTimezone = TRUE)%>% 
+  dyRangeSelector()
+plot_dygraph
+```
+```{r}
+
+for (i in unique(data3$period.id)) {
+  dygraph(filter(data3, period.id==i) %>% select(date_trans,y), main = "db", group = "chart")%>%
+  dyOptions( drawPoints = TRUE, pointSize = 4,useDataTimezone = TRUE )
+}
+```
+
+
+```{r}
+# create a list of dygraphs objects
+library(dygraphs)
+library(htmltools)
+# Plot value and frequency :
+a<-filter(data3, period.id==0)
+b<-filter(data3, period.id==1)
+c<-filter(data3, period.id==2)
+d<-filter(data3, period.id==3)
+
+
+dygraph(a %>% select(date_trans,y), main = "db", group = "chart")%>%
+dyOptions( drawPoints = TRUE, pointSize = 4,useDataTimezone = TRUE )
+
+dygraph(b %>% select(date_trans,y), main = "db", group = "chart")%>%
+dyOptions( drawPoints = TRUE, pointSize = 4,useDataTimezone = TRUE )
+
+dygraph(c %>% select(date_trans,y), main = "db", group = "chart")%>%
+dyOptions( drawPoints = TRUE, pointSize = 4,useDataTimezone = TRUE )
+
+dygraph(d %>% select(date_trans,y), main = "db", group = "chart")%>%
+dyOptions( drawPoints = TRUE, pointSize = 4,useDataTimezone = TRUE )
+
+#htmltools::browsable(htmltools::tagList(dy_graph))
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+
+
+```{r}
 ```
 
 
