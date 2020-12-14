@@ -1,18 +1,19 @@
-path<-'/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_3000_head.dat' # 25 MB OK
+#path<-'/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_3000_head.dat' # 25 MB OK
 #path<-'/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_3000_tail.dat' # 25 MB OK
 #path<-'/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_3000.dat' # 3.6GB OK
 #path<-'/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_E_series.dat' # 2.9 GB crack session (ram?)
 #path<-'/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_Ric.dat' # 2.8 GB OK
 
 #path test from windown:
-#path<-'//Vn01w2k16v18/data/Copyroom/Test_software/Data/V04R-V04R-SQLData_3000_head.dat'
+path<-'//Vn01w2k16v18/data/Copyroom/Test_software/Data/V04R-V04R-SQLData_3000_head.dat'
+#path<-'//Vn01w2k16v18/data/Copyroom/Test_software/Data/V04R-V04R-SQLData_4000_tail.dat'
 
 ui <- fluidPage(
-
+  
   titlePanel("FQC DATA ANALYTIC"),
   h5("Created by: DNN - Version: 1.0"),
   sidebarLayout(
-
+    
     sidebarPanel(
       "Sidebar DNN",
       textInput("file_path", h3("File input"),
@@ -25,7 +26,7 @@ ui <- fluidPage(
       selectInput("parameter_column_value", "Choose parameter column value", choices=NULL, selected=NULL),
       selectInput("date_column", "Choose date column", choices=NULL, selected=NULL),
       actionButton("go_data_analyze", "Process Data (wait ~ 1 min)",style="color: #fff; background-color: #337ab7;"),
-      dateInput("date_choose", "Date (y-m-d):", value = "2017-12-22"),
+      dateInput("date_choose", "Date (y-m-d):", value = "2020-06-20"),
       "Min and Max date:",
       textOutput('min_date_text'),
       textOutput('max_date_text'),
@@ -34,7 +35,7 @@ ui <- fluidPage(
       #actionButton("delete", "delete data to free ram"),
       #tableOutput('all_data_memory'),
     ), #endsidebarpanel
-
+    
     mainPanel(
       "First some rows of data:",
       dataTableOutput("data_head_DT"),
@@ -53,9 +54,13 @@ ui <- fluidPage(
       "Descriptives statistics remove outlier:",
       tableOutput("descriptives_stat_remove_outlier"),
       "Filter outlier for smooth chart:",
-      htmlOutput("dygraph_filter_outlier")
-
-
+      htmlOutput("dygraph_filter_outlier"),
+      "QCC chart:",
+      plotOutput("qcc_chart"),
+      "QCC summary:",
+      verbatimTextOutput("qcc_summary"),
+      
+      
     )#end mainpanel
   )# end sidebarlayout
 )

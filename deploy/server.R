@@ -1,11 +1,12 @@
+#### server
 server <- function(input, output, session) {
-
+  
   #Head some rows for select columns
   data_head_df<-reactive({
     req(input$go_read_file)
     fread(input$file_path,fill=TRUE,nrows=100)
-    })
-
+  })
+  
   output$data_head_DT<-renderDataTable(data_head_df(),
                                        options =list(pageLength = 5)
   )
@@ -21,16 +22,16 @@ server <- function(input, output, session) {
   })
   # Bar chart plot top product:
   output$top_product_plot<-renderPlot({all_product() %>%
-                            ggplot(aes(x= reorder(top_product, -Freq),y=Freq)) +
-                            geom_bar(stat="identity",fill="steelblue")+
-                            theme(text = element_text(size=15),axis.text.x=element_text(angle=90))
-    })
-
+      ggplot(aes(x= reorder(top_product, -Freq),y=Freq)) +
+      geom_bar(stat="identity",fill="steelblue")+
+      theme(text = element_text(size=15),axis.text.x=element_text(angle=90))
+  })
+  
   observeEvent(all_product(),updateSelectInput(session, "product_type_choose", choices=all_product()$top_product))
   observeEvent(data_head_df(),updateSelectInput(session, "parameter_column_name", choices=names(data_head_df()),selected='V65'))
   observeEvent(data_head_df(),updateSelectInput(session, "parameter_column_value", choices=names(data_head_df()),selected='V66'))
   observeEvent(data_head_df(),updateSelectInput(session, "date_column", choices=names(data_head_df()),selected='V6'))
-
+  
   #Data after filter with all date
   data_all_date <-reactive({
     req(input$go_data_analyze)
@@ -40,18 +41,18 @@ server <- function(input, output, session) {
     dt<-dt %>%
       mutate( date_trans=mdy_hms(date), # must have mdy_hms for convert date time
               date_filter=as_date(date_trans),
-              )
-    })
+      )
+  })
   # Show min max date
   output$min_date_text<-renderText({min(data_all_date()$date)})
   output$max_date_text<-renderText({max(data_all_date()$date)})
-
+  
   # Show head and tail data with all date
   output$data_process_head <- renderTable({
     head(data_all_date(),2)})
   output$data_process_tail <- renderTable({
     tail(data_all_date(),2)})
-
+  
   # Data with only one date
   data_one_date<-reactive({
     req(input$go_data_analyze_date)
@@ -62,12 +63,12 @@ server <- function(input, output, session) {
   # show some data one date:
   output$data_one_date_head <- renderTable({
     tail(data_one_date(),2)})
-
+  
   # show descriptive ststistics data one date:
   output$descriptives_stat <- renderTable({
     psych::describe(data_one_date() %>% select(parameter_freq,parameter_value))
   })
-
+  
   # Dygraph chart
   output$dygraph_normal<- renderUI({
     plot_dygraph(data_one_date(),input$remove_frequency_chart,input$go_data_analyze_date)
@@ -91,7 +92,16 @@ server <- function(input, output, session) {
     plot_dygraph(data_one_date_no_outlier(),input$remove_frequency_chart,input$go_data_analyze_date)
   })
   
-  
+  # Qcc chart after filter outlier:
+  output$qcc_chart<-renderPlot({
+    qcc(data_one_date_no_outlier()$parameter_value, type="xbar.one", std.dev = "SD",
+        labels=format(data_one_date_no_outlier()$date_trans,"%b-%d-%H"),axes.las = 2,xlab="")
+  })
+  # Summary qcc chart
+  output$qcc_summary <-renderPrint({
+    summary(qcc(data_one_date_no_outlier()$parameter_value, type="xbar.one", std.dev = "SD",
+                labels=format(data_one_date_no_outlier()$date_trans,"%b-%d-%H"),axes.las = 2,xlab=""))
+  })
   
   #dygraphs function 2
   plot_dygraph <-function(data_one_date,check_input_remove_frequency_chart,
@@ -109,7 +119,7 @@ server <- function(input, output, session) {
     #htmltools::browsable(htmltools::tagList(dy_graph))
   }
   
-
+  
   # Function to data with filter product, date, column (no need to keep)
   savefunc2 <- function(file_path,product_type_column,product_type_choose=NULL,date_column=NULL,
                         parameter_column_name=NULL,parameter_column_value=NULL){
@@ -119,7 +129,7 @@ server <- function(input, output, session) {
           dt2 <<- fread(file_path,fill=TRUE,select=c(product_type_column,date_column,parameter_column_name,parameter_column_value))}
         else{
           dt2 <<- fread(file_path,fill=TRUE,select=c(product_type_column,date_column,parameter_column_name,parameter_column_value)) %>%
-          filter(V3 ==product_type_choose)}
+            filter(V3 ==product_type_choose)}
         
       },
       warning = function(w){
@@ -141,7 +151,3 @@ server <- function(input, output, session) {
     );
   }
 }
-
-
-
-

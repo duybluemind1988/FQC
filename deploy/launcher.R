@@ -13,6 +13,7 @@ getDTthreads(verbose=TRUE)
 
 #shinyApp(ui = ui, server = server)
 #getwd()
-setwd("/home/ad/Data_science/R_studio/Git/FQC/deploy/")
+#setwd("/home/ad/Data_science/R_studio/Git/FQC/deploy/")
+setwd("C:/Users/DNN/Data_science/Git/FQC/deploy/")
 shiny::runApp(host="0.0.0.0",port=4414)
 
