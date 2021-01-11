@@ -6,6 +6,7 @@ library(plotly)
 library(psych)
 library(dygraphs)
 library(xts)
+library(qcc)
 # run parallel for Data.table
 setDTthreads(threads = 0)
 getDTthreads(verbose=TRUE) 
