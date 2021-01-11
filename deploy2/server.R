@@ -8,6 +8,8 @@ library(psych)
 library(dygraphs)
 library(xts)
 library(qcc)
+options(shiny.host = '0.0.0.0')
+options(shiny.port = 4414)
 
 server <- function(input, output, session) {
   
