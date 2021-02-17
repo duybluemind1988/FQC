@@ -397,7 +397,7 @@ p1%>%
   add_trace(y = ~LSL, name = 'LSL', mode = 'lines',color="rgb(20, 20, 20)")
 ```
 Try another chart:
-High chart
+# High chart
 ```{r}
 head(df_plot_no_outlier)
 ```

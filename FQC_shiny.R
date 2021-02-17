@@ -2,9 +2,10 @@ library(data.table)
 library(tidyverse)
 library(lubridate)
 library(shiny)
-library(plotly)
+#library(plotly)
 library(psych)
 library(dygraphs)
+library(highcharter)
 library(xts)
 library(qcc)
 # run parallel for Data.table
@@ -66,11 +67,13 @@ ui <- fluidPage(
       "Descriptives statistics:",
       tableOutput("descriptives_stat"),
       checkboxInput("remove_frequency_chart", "Remove_frequency_chart", value = TRUE),
-      htmlOutput("dygraph_normal"),
+      #htmlOutput("dygraph_normal"),
+      htmlOutput("highcharter_normal"),
       "Descriptives statistics remove outlier:",
       tableOutput("descriptives_stat_remove_outlier"),
       "Filter outlier for smooth chart:",
-      htmlOutput("dygraph_filter_outlier"),
+      #htmlOutput("dygraph_filter_outlier"),
+      htmlOutput("highcharter_filter_outlier"),
       "QCC chart:",
       plotOutput("qcc_chart"),
       "QCC summary:",
@@ -153,8 +156,13 @@ server <- function(input, output, session) {
   })
 
   # Dygraph chart
-  output$dygraph_normal<- renderUI({
-    plot_dygraph(data_one_date(),input$remove_frequency_chart,input$go_data_analyze_date)
+  #output$dygraph_normal<- renderUI({
+  #  plot_dygraph(data_one_date(),input$remove_frequency_chart,input$go_data_analyze_date)
+  #})
+  
+  # Highcharter chart
+  output$highcharter_normal<- renderUI({
+    plot_high_charter(data_one_date(),input$remove_frequency_chart,input$go_data_analyze_date)
   })
   # Filter outlier:
   data_one_date_no_outlier<-reactive({
@@ -170,9 +178,15 @@ server <- function(input, output, session) {
   output$descriptives_stat_remove_outlier <- renderTable({
     psych::describe(data_one_date_no_outlier() %>% select(parameter_freq,parameter_value))
   })
+  
   # Dygraph chart after filter outlier:
-  output$dygraph_filter_outlier <- renderUI({
-    plot_dygraph(data_one_date_no_outlier(),input$remove_frequency_chart,input$go_data_analyze_date)
+  #output$dygraph_filter_outlier <- renderUI({
+  #  plot_dygraph(data_one_date_no_outlier(),input$remove_frequency_chart,input$go_data_analyze_date)
+  #})
+  
+  # High charter chart after filter outlier:
+  output$highcharter_filter_outlier <- renderUI({
+    plot_high_charter(data_one_date_no_outlier(),input$remove_frequency_chart,input$go_data_analyze_date)
   })
   
   # Qcc chart after filter outlier:
@@ -191,11 +205,27 @@ server <- function(input, output, session) {
                           check_go_data_analyze_date){
     req(check_go_data_analyze_date)
     res = list()
-    res[[1]] <- dygraph(data_one_date %>% select(date_trans,parameter_value), main = "db", group = "lung-deaths")%>%
+    res[[1]] <- dygraph(data_one_date %>% select(date_trans,parameter_value), main = "db", group = "abc")%>%
       dyOptions( drawPoints = TRUE, pointSize = 4,useDataTimezone = TRUE )%>% dyRangeSelector()
     if (!check_input_remove_frequency_chart){
-      res[[2]] <- dygraph(data_one_date %>% select(date_trans,parameter_freq), main = "Frequency", group = "lung-deaths")%>%
+      res[[2]] <- dygraph(data_one_date %>% select(date_trans,parameter_freq), main = "Frequency", group = "abc")%>%
         dyOptions( drawPoints = TRUE, pointSize = 4,useDataTimezone = TRUE )%>% dyRangeSelector()
+    }
+    # render the dygraphs objects using htmltools
+    res <- htmltools::tagList(res)
+    #htmltools::browsable(htmltools::tagList(dy_graph))
+  }
+  
+  #High charter function
+  plot_high_charter <-function(data_one_date,check_input_remove_frequency_chart,
+                          check_go_data_analyze_date){
+    req(check_go_data_analyze_date)
+    res = list()
+    res[[1]] <- data_one_date%>%
+      hchart(type = "line", hcaes(x = as.character(date_trans), y = parameter_value))
+    if (!check_input_remove_frequency_chart){
+      res[[2]] <- data_one_date%>%
+        hchart(type = "line", hcaes(x = as.character(date_trans), y = parameter_freq))
     }
     # render the dygraphs objects using htmltools
     res <- htmltools::tagList(res)

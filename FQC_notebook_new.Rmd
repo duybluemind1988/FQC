@@ -4,6 +4,10 @@ output: html_document
 ---
 
 #BEGIN HERE----------------
+```{r}
+#install.packages("data.table")
+```
+
 
 ```{r}
 library(data.table)
@@ -11,15 +15,23 @@ library(tidyverse)
 library(lubridate)
 setDTthreads(threads = 0)
 getDTthreads(verbose=TRUE) 
+
+packageVersion("data.table") # ‘1.13.2’ --> v1.13.6
 ```
 
 ```{r}
 #file='/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_3000_head.dat' 
-#file='/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_4000.dat' 
-file='/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_4000_tail.dat'
+#file='/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_4000.dat' # 0.8 GB
+#file='/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_4000_tail.dat'
 #file='/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_3000.dat'# 3.6 GB
 #file<-'/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_E_series.dat' # 2.9 GB crack session (ram?)
 #file<-'/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_Ric.dat' # 2.8 GB OK
+
+#file <- "//Vn01w2k16v18/data/Copyroom/Test_software/Data/V04R-V04R-SQLData_Ric.dat" # 2.24 GB
+#file <- "//Vn01w2k16v18/data/Copyroom/Test_software/Data/V04R-V04R-SQLData_3000.dat" # 3.6 GB
+#file <- "//Vn01w2k16v18/data/Copyroom/Test_software/Data/V04R-V04R-SQLData_4000.dat" # 0.8 GB
+file <- "//Vn01w2k16v18/data/Copyroom/Test_software/Data/V04R-V04R-SQLData_4000_tail.dat" # 251 MB
+#file <- "//Vn01w2k16v18/data/Copyroom/Test_software/Data/V04R-V04R-SQLData_Eseries.dat" # 2.9 GB Crash seasion at 7.4 GB
 data_head<-fread(file,fill=TRUE,nrows=5)
 data_head # month/day/year
 ```
@@ -82,6 +94,8 @@ time.taken
 # doParallel method 2: 1.118 mins
 # doParallel method 3: 51 s
 ```
+Read 2.4 GB Ric data, Ram from 5.3 GB --> 7 GB --> 5.2 GB (25 s). object size 29 MB
+Read 3.6 GB Rec 3000 data, Ram from 5.2 GB --> 7.2 GB --> 5.3 GB -->7.2-->4.7 (1.8 min). object size 43 MB
 ```{r}
 #install.packages("pryr")
 library(pryr)
@@ -171,12 +185,12 @@ sl<-object.size(dt2)
 print(sl, units = "auto", standard = "SI") 
 ```
 ```{r}
-data_process <- dt2 %>%
+data_all_day <- dt2 %>%
   mutate( date_trans=mdy_hms(date), # must have mdy_hms for convert date time
           date_filter=as_date(date_trans),
          )
-head(data_process)
-tail(data_process)
+head(data_all_day)
+tail(data_all_day)
 ```
 
 ```{r}
@@ -192,68 +206,83 @@ max(data_process$date)
 ```{r}
 # Best to choose
 date_choose="2020-06-10"
-df_plot <- data_process %>% 
+data_one_day <- data_all_day %>% 
   select(date_trans,date,date_filter,parameter_freq,parameter_value) %>% 
   filter(date_filter==ymd(date_choose))
-df_plot
+data_one_day
 ```
 #**Descreptive statistics**
 ```{r}
-summary(df_plot)
+summary(data_one_day)
 ```
 ```{r}
 #install.packages('pastecs')
 library(pastecs)
-stat.desc(df_plot %>% select(parameter_freq,parameter_value))
+stat.desc(data_one_day %>% select(parameter_freq,parameter_value))
 ```
 ```{r}
 #install.packages('Hmisc')
 library(Hmisc)
-describe(df_plot %>% select(parameter_freq,parameter_value))
+describe(data_one_day %>% select(parameter_freq,parameter_value))
 ```
 
 ```{r}
 #install.packages('psych')
 library(psych)
-describe(df_plot %>% select(parameter_freq,parameter_value))
+describe(data_one_day %>% select(parameter_freq,parameter_value))
 ```
 #**Remove outlier**
 ```{r}
-select_data<-df_plot$parameter_value
+select_data<-data_one_day$parameter_value
 Q1 <- quantile(select_data, .25)
 Q3 <- quantile(select_data, .75)
 IQR <- IQR(select_data)
 k=3
-df_plot_no_outlier <- subset(df_plot, select_data> (Q1 - k*IQR) & select_data< (Q3 + k*IQR))
+data_one_day_no_outlier <- subset(data_one_day, select_data> (Q1 - k*IQR) & select_data< (Q3 + k*IQR))
 
-print(dim(df_plot))
-print(dim(df_plot_no_outlier))
+print(dim(data_one_day))
+print(dim(data_one_day_no_outlier))
+```
+```{r}
+select_data<-data_all_day$parameter_value
+Q1 <- quantile(select_data, .25)
+Q3 <- quantile(select_data, .75)
+IQR <- IQR(select_data)
+k=3
+data_all_day_no_outlier <- subset(data_all_day, select_data> (Q1 - k*IQR) & select_data< (Q3 + k*IQR))
+
+print(dim(data_all_day))
+print(dim(data_all_day_no_outlier))
 ```
 
-#**PLOT**
+#** Line PLOT**
+## Dygraphs
 ```{r}
 #install.packages('highcharter')
 library(dygraphs)
 ```
 
 ```{r}
-df_plot
+#df_plot
 ```
 ```{r}
-# Plot value only:
-plot_dygraph <- dygraph(df_plot %>% select(date_trans,parameter_value)) %>%
+# Plot value only with outlier:
+plot_dygraph <- dygraph(data_one_day %>% select(date_trans,parameter_value)) %>%
   dyOptions( drawPoints = TRUE, pointSize = 4,useDataTimezone = TRUE )%>% 
   dyRangeSelector()
-#plot_dygraph
+plot_dygraph
 ```
 
 ```{r}
 str(df_plot_no_outlier)
 ```
+```{r}
+head(df_plot_no_outlier)
+```
 
 ```{r}
-# Plot value only:
-plot_dygraph <- dygraph(df_plot_no_outlier %>% select(date_trans,parameter_value)) %>%
+# Plot value only with out outlier:
+plot_dygraph <- dygraph(data_one_day_no_outlier %>% select(date_trans,parameter_value)) %>%
   dyOptions( drawPoints = TRUE, pointSize = 4,useDataTimezone = TRUE)%>% 
   dyRangeSelector()
 plot_dygraph
@@ -274,15 +303,43 @@ temperature
 ```{r}
 # Plot value and frequency :
 dy_graph <- list(
-  dygraph(df_plot_no_outlier %>% select(date_trans,parameter_value), main = "db", group = "chart")%>%
+  dygraph(data_one_day_no_outlier %>% select(date_trans,parameter_value), main = "db", group = "chart")%>%
   dyOptions( drawPoints = TRUE, pointSize = 4,useDataTimezone = TRUE ),
-dygraph(df_plot_no_outlier %>% select(date_trans,parameter_freq), main = "Frequency", group = "chart")%>%
+dygraph(data_one_day_no_outlier %>% select(date_trans,parameter_freq), main = "Frequency", group = "chart")%>%
   dyOptions( drawPoints = TRUE, pointSize = 4,useDataTimezone = TRUE )
 )  # end list
 
 # render the dygraphs objects using htmltools
 htmltools::browsable(htmltools::tagList(dy_graph))
 ```
+## High charter
+```{r}
+#install.packages("highcharter")
+library(highcharter)
+```
+```{r}
+data_one_day_no_outlier%>%
+  hchart(type = "line", hcaes(x = as.character(date_trans), y = parameter_value))
+```
+```{r}
+data_all_day_no_outlier%>%
+  hchart(type = "line", hcaes(x = as.character(date_trans), y = parameter_value))
+```
+
+```{r}
+data_all_day_no_outlier%>%
+  hchart(type = "line", hcaes(x = date_trans, y = parameter_value))
+```
+
+```{r}
+data_all_day_no_outlier%>%
+  hchart(type = "line", hcaes(x = as.character(date_trans), y = parameter_freq))
+```
+# Box plot
+```{r}
+data_all_day_no_outlier
+```
+
 #**Control chart investigate**
 
 ```{r}
@@ -345,8 +402,9 @@ ggplot(oj, aes(date_trans, parameter_value)) +
   labs(x = 'Sample Number', y = 'Defects per million units')
 ```
 
-# Hide blank space with no x-values 
+# Hide blank space dygraph with no x-values 
 ```{r}
+data_research<-df_plot_no_outlier %>% select(date_trans,parameter_value)
 data_research
 ```
 We can identify time gaps by comparing the time difference between consecutive time stamps. Here, the logic I used defines a gap as any time difference larger than the median of all time differences. You may want to change that to some other value (e.g. 2 days? 1 week?) depending on your context:
