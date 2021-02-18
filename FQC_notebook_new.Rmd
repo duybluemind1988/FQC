@@ -20,17 +20,18 @@ packageVersion("data.table") # ‘1.13.2’ --> v1.13.6
 ```
 
 ```{r}
-#file='/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_3000_head.dat' 
-#file='/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_4000.dat' # 0.8 GB
-#file='/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_4000_tail.dat'
-#file='/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_3000.dat'# 3.6 GB
-#file<-'/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_E_series.dat' # 2.9 GB crack session (ram?)
-#file<-'/media/ad/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_Ric.dat' # 2.8 GB OK
+#file<-'/mnt/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_3000_head.dat' # 25 MB OK
+#file<-'/mnt/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_3000_tail.dat' # 25 MB OK
+file<-'/mnt/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_4000_tail.dat' # 0.2 GB OK
+#file<-'/mnt/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_3000.dat' # 3.6GB OK
+#file<-'/mnt/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_E_series.dat' # 2.9 GB crack session (ram?)
+#file<-'/mnt/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_Ric.dat' # 2.8 GB OK
+#file<-'/mnt/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_4000.dat' # 0.8 GB OK
 
 #file <- "//Vn01w2k16v18/data/Copyroom/Test_software/Data/V04R-V04R-SQLData_Ric.dat" # 2.24 GB
 #file <- "//Vn01w2k16v18/data/Copyroom/Test_software/Data/V04R-V04R-SQLData_3000.dat" # 3.6 GB
 #file <- "//Vn01w2k16v18/data/Copyroom/Test_software/Data/V04R-V04R-SQLData_4000.dat" # 0.8 GB
-file <- "//Vn01w2k16v18/data/Copyroom/Test_software/Data/V04R-V04R-SQLData_4000_tail.dat" # 251 MB
+#file <- "//Vn01w2k16v18/data/Copyroom/Test_software/Data/V04R-V04R-SQLData_4000_tail.dat" # 251 MB
 #file <- "//Vn01w2k16v18/data/Copyroom/Test_software/Data/V04R-V04R-SQLData_Eseries.dat" # 2.9 GB Crash seasion at 7.4 GB
 data_head<-fread(file,fill=TRUE,nrows=5)
 data_head # month/day/year
@@ -198,8 +199,20 @@ tail(data_all_day)
 ```
 
 ```{r}
-min(data_process$date)
-max(data_process$date)
+min(data_all_day$date_trans)
+max(data_all_day$date_trans)
+class(min(data_all_day$date_trans))
+```
+Min and Max date:
+1591874523
+1605112618
+```{r}
+min=1591874523
+max=1605112618
+as.Date(min, origin = "1970-05-30")
+library(anytime)
+anytime(min)
+anytime(max)
 ```
 
 #**Select one date**
@@ -213,23 +226,23 @@ data_one_day
 ```
 #**Descreptive statistics**
 ```{r}
-summary(data_one_day)
+#summary(data_one_day)
 ```
 ```{r}
 #install.packages('pastecs')
-library(pastecs)
-stat.desc(data_one_day %>% select(parameter_freq,parameter_value))
+#library(pastecs)
+#stat.desc(data_one_day %>% select(parameter_freq,parameter_value))
 ```
 ```{r}
 #install.packages('Hmisc')
-library(Hmisc)
-describe(data_one_day %>% select(parameter_freq,parameter_value))
+#library(Hmisc)
+#describe(data_one_day %>% select(parameter_freq,parameter_value))
 ```
 
 ```{r}
 #install.packages('psych')
-library(psych)
-describe(data_one_day %>% select(parameter_freq,parameter_value))
+#library(psych)
+#describe(data_one_day %>% select(parameter_freq,parameter_value))
 ```
 #**Remove outlier**
 ```{r}
@@ -322,22 +335,115 @@ data_one_day_no_outlier%>%
   hchart(type = "line", hcaes(x = as.character(date_trans), y = parameter_value))
 ```
 ```{r}
-data_all_day_no_outlier%>%
-  hchart(type = "line", hcaes(x = as.character(date_trans), y = parameter_value))
+length_data <- length(data_one_day_no_outlier$parameter_value)
+data_parameter <- data_one_day_no_outlier$parameter_value
+USL <- 94
+LSL <- 91
+USL_vector<-rep(USL,each=length_data)
+LSL_vector<-rep(LSL,each=length_data)
+
+#sd <- sd(data_parameter)
+Mean <- mean(data_parameter)
+mR <- mean(abs(diff(data_parameter)))
+Sigma <- mR/1.128
+LCL <- Mean - 3 * Sigma
+UCL <- Mean + 3 * Sigma
+LCL_vector<-rep(LCL,each=length_data)
+UCL_vector<-rep(UCL,each=length_data)
+Mean_vector<-rep(Mean,each=length_data)
+
+plotline_USL <- list(color = "red", value = USL, width = 2, zIndex = 5)
+
+plotline_LSL <- list(color = "red", value = LSL, width = 2, zIndex = 6)
+```
+Center of group statistics:  92.91126
+Standard deviation:  0.480768 
+
+Control limits:
+      LCL      UCL
+ 91.46896 94.35356
+
+```{r}
+data_one_day_no_outlier%>%
+  hchart(type = "line", hcaes(x = date, y = parameter_value),name='Value') %>% 
+  hc_add_series(data=USL_vector,color = "red",name = "USL") %>% 
+  hc_add_series(data=LSL_vector,color = "red",name = "LSL")
+```
+```{r}
+data_one_day_no_outlier%>%
+  hchart(type = "line", hcaes(x = date, y = parameter_value),name='Value') %>% 
+  hc_yAxis_multiples(
+    list(plotline_USL),
+    list(plotline_LSL)
+    )
 ```
 
 ```{r}
-data_all_day_no_outlier%>%
-  hchart(type = "line", hcaes(x = date_trans, y = parameter_value))
+#data_all_day_no_outlier%>%
+#  hchart(type = "line", hcaes(x = as.character(date_trans), y = parameter_value))
 ```
 
 ```{r}
-data_all_day_no_outlier%>%
-  hchart(type = "line", hcaes(x = as.character(date_trans), y = parameter_freq))
+#data_all_day_no_outlier%>%
+#  hchart(type = "line", hcaes(x = date_trans, y = parameter_value))
+```
+
+```{r}
+#data_all_day_no_outlier%>%
+#  hchart(type = "line", hcaes(x = as.character(date_trans), y = parameter_freq))
 ```
 # Box plot
 ```{r}
 data_all_day_no_outlier
+```
+```{r}
+length_data <- length(data_all_day_no_outlier$parameter_value)
+data_parameter <- data_all_day_no_outlier$parameter_value
+USL <- 94
+LSL <- 91
+USL_vector<-rep(USL,each=length_data)
+LSL_vector<-rep(LSL,each=length_data)
+```
+
+```{r}
+plotline1<- list(
+  color = "red", value = USL, width = 2, zIndex = 5
+)
+plotline1
+```
+
+```{r}
+hcboxplot(
+  outliers = TRUE,
+  x = data_all_day_no_outlier$parameter_value,
+  var = data_all_day_no_outlier$date_filter,
+  name = "Length"
+) %>%
+  hc_title(text = "Box plot") %>%
+  hc_yAxis(title = list(text = "Value")) %>%
+  hc_chart(type = "column")
+  #hc_yAxis(list(plotline1))
+```
+
+```{r}
+dat <- data_to_boxplot(data_all_day_no_outlier,parameter_value, date_filter, name = "height in meters")
+
+highchart() %>%
+  hc_xAxis(type = "category") %>%
+  hc_add_series_list(dat) %>% 
+  hc_yAxis_multiples(list(plotline1))
+  #hc_add_series(data=USL_vector,color = "red",name = "USL") %>% 
+  #hc_add_series(data=LSL_vector,color = "red",name = "LSL")
+```
+
+
+```{r}
+library(plotly)
+plot_ly(data_all_day_no_outlier,
+              y = ~parameter_value,
+              x =  ~factor(date_filter),
+              #color = ~factor(date_filter),
+              type = "box") 
 ```
 
 #**Control chart investigate**
@@ -348,14 +454,21 @@ data_research
 ```
 
 # Continuous one-at-time data
-```{r}
-#install.packages("ggQC")
-library(qcc)
-library(scales)
-```
 
 ```{r}
-qcc(data_research$parameter_value, type="xbar.one", std.dev = "SD")
+#Load the Necessary Packages
+library(ggQC) 
+library(ggplot2)
+ 
+#Make the Plot
+ggplot(data_one_day_no_outlier, aes(x=date, y=parameter_value, group=1)) +
+  geom_point() + geom_line() +
+  stat_QC(method="XmR", auto.label = T, label.digits = 4) + 
+  ylab("Screw Length (inches)") +
+  scale_x_discrete(expand =  expand_scale(mult = .15))
+
+qcc(data_one_day_no_outlier$parameter_value, type="xbar.one", std.dev = "SD")
+qcc(data_one_day_no_outlier$parameter_value, type="xbar.one")
 ```
 
 
