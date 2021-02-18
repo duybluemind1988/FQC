@@ -67,9 +67,33 @@ server <- function(input, output, session) {
   output$data_process_tail <- renderTable({
     tail(data_all_date(),2)})
   
-  # Data with only one date
+  #------------------Data analyze with all day-------------------#
+  
+  # Filter outlier 
+  data_all_date_no_outlier<-reactive({
+    req(input$go_filter_outlier)
+    select_data<-data_all_date()$parameter_value
+    Q1 <- quantile(select_data, .25)
+    Q3 <- quantile(select_data, .75)
+    IQR <- IQR(select_data)
+    k=3
+    subset(data_all_date(), select_data> (Q1 - k*IQR) & select_data< (Q3 + k*IQR))
+  })
+  # High charter chart after filter outlier:
+  output$highcharter_box_filter_outlier <- renderUI({
+    req(input$go_data_analyze_all_date)
+    plot_box_high_charter(data_all_date_no_outlier(),input$remove_frequency_chart,input$go_data_analyze_all_date,input$USL,input$LSL)
+  })
+  # show descriptive ststistics data all date:
+  output$descriptives_stat_all_date <- renderTable({
+    req(input$go_data_analyze_all_date)
+    psych::describe(data_all_date_no_outlier() %>% select(parameter_freq,parameter_value))
+  })
+  
+  # ---------------Data analyze with only one day----------------------------#
+  ##-- DATA NOT FILTER OUTLIER -- ##
   data_one_date<-reactive({
-    req(input$go_data_analyze_date)
+    req(input$go_data_analyze_one_date)
     data_all_date() %>%
       select(date,date_trans,date_filter,parameter_freq,parameter_value) %>%
       filter(date_filter==ymd(input$date_choose))
@@ -85,8 +109,10 @@ server <- function(input, output, session) {
   
   # Highcharter chart
   output$highcharter_normal<- renderUI({
-    plot_line_high_charter(data_one_date(),input$remove_frequency_chart,input$go_data_analyze_date,input$USL,input$LSL)
+    plot_line_high_charter(data_one_date(),input$remove_frequency_chart,input$go_data_analyze_one_date,input$USL,input$LSL)
   })
+  
+  ##-- DATA FILTER OUTLIER -- ##
   # Filter outlier:
   data_one_date_no_outlier<-reactive({
     req(input$go_filter_outlier)
@@ -98,15 +124,6 @@ server <- function(input, output, session) {
     subset(data_one_date(), select_data> (Q1 - k*IQR) & select_data< (Q3 + k*IQR))
   })
   
-  data_all_date_no_outlier<-reactive({
-    req(input$go_filter_outlier)
-    select_data<-data_all_date()$parameter_value
-    Q1 <- quantile(select_data, .25)
-    Q3 <- quantile(select_data, .75)
-    IQR <- IQR(select_data)
-    k=3
-    subset(data_all_date(), select_data> (Q1 - k*IQR) & select_data< (Q3 + k*IQR))
-  })
   # show descriptive ststistics data one date filter outlier:
   output$descriptives_stat_remove_outlier <- renderTable({
     psych::describe(data_one_date_no_outlier() %>% select(parameter_freq,parameter_value))
@@ -114,7 +131,7 @@ server <- function(input, output, session) {
   
   # High charter chart after filter outlier:
   output$highcharter_filter_outlier <- renderUI({
-    plot_line_high_charter(data_one_date_no_outlier(),input$remove_frequency_chart,input$go_data_analyze_date,input$USL,input$LSL)
+    plot_line_high_charter(data_one_date_no_outlier(),input$remove_frequency_chart,input$go_data_analyze_one_date,input$USL,input$LSL)
   })
   
   # Qcc chart after filter outlier:
@@ -128,15 +145,9 @@ server <- function(input, output, session) {
                 labels=format(data_one_date_no_outlier()$date_trans,"%b-%d-%H"),axes.las = 2,xlab=""))
   })
   
-  #------------------Many data investigate--------------
-  
-  # High charter chart after filter outlier:
-  output$highcharter_box_filter_outlier <- renderUI({
-    plot_box_high_charter(data_all_date_no_outlier(),input$remove_frequency_chart,input$go_data_analyze_date,input$USL,input$LSL)
-  })
   
   #-----------------------------FUNCTION----------------------------
-  #High charter function
+  #High charter line plot function
   plot_line_high_charter <-function(data_one_date,check_input_remove_frequency_chart,
                                check_go_data_analyze_date,USL,LSL){
     req(check_go_data_analyze_date)
@@ -158,10 +169,10 @@ server <- function(input, output, session) {
     res[[1]] <- data_one_date%>%
       hchart(type = "line", hcaes(x = date, y = parameter_value),name='Value') %>% 
       hc_add_series(data=USL_vector,color = "red",name = "USL") %>% 
-      hc_add_series(data=LSL_vector,color = "red",name = "LSL") %>% 
-      hc_add_series(data=UCL_vector,color = "blue",name = "UCL") %>% 
-      hc_add_series(data=LCL_vector,color = "blue",name = "LCL") %>% 
-      hc_add_series(data=Mean_vector,color = "blue",name = "Mean")
+      hc_add_series(data=LSL_vector,color = "red",name = "LSL")
+      #hc_add_series(data=UCL_vector,color = "blue",name = "UCL") %>% 
+      #hc_add_series(data=LCL_vector,color = "blue",name = "LCL") %>% 
+      #hc_add_series(data=Mean_vector,color = "blue",name = "Mean")
     if (!check_input_remove_frequency_chart){
       res[[2]] <- data_one_date%>%
         hchart(type = "line", hcaes(x = date, y = parameter_freq))
@@ -171,20 +182,26 @@ server <- function(input, output, session) {
     #htmltools::browsable(htmltools::tagList(dy_graph))
   }
   
-  #High charter function
+  #High charter box plot function
   plot_box_high_charter <-function(data_all_date,check_input_remove_frequency_chart,
                                     check_go_data_analyze_date,USL,LSL){
     req(check_go_data_analyze_date)
     # USL, LSL
-    length_data <- length(data_all_date$parameter_value)
+    length_data <-length(unique(data_all_date$date_filter))
     USL_vector<-rep(USL,each=length_data)
     LSL_vector<-rep(LSL,each=length_data)
     
-    data_all_date%>%
-      hcboxplot(x = parameter_value, var=date_filter) %>%
-      hc_chart(type = "column")%>% 
-      hc_add_series(data=USL_vector,color = "red",name = "USL") %>% 
-      hc_add_series(data=LSL_vector,color = "red",name = "LSL") 
+    dat <- data_to_boxplot(data_all_date,parameter_value, date_filter, name = "Value box plot")
+    
+    p<- highchart() %>%
+          hc_xAxis(type = "category") %>%
+          hc_add_series_list(dat) %>% 
+          #hc_yAxis_multiples(list(plotline1)) %>% 
+          hc_add_series(data=USL_vector,color = "red",name = "USL") %>% 
+          hc_add_series(data=LSL_vector,color = "red",name = "LSL") %>% 
+          hc_title(text = "Box plot") %>%
+          hc_yAxis(title = list(text = "Value"))
+    htmltools::tagList(p)
   }
   
   # Function to data with filter product, date, column (no need to keep)
