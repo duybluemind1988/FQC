@@ -1,3 +1,4 @@
+library(plotly)
 #### user interface
 #path<-'/mnt/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_3000_head.dat' # 25 MB OK
 #path<-'/mnt/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_3000_tail.dat' # 25 MB OK
@@ -51,12 +52,24 @@ ui <- fluidPage(
       h3("4. Data analysis all day"),
       numericInput("USL","Please input USL",value=96),
       numericInput("LSL","Please input LSL",value=90),
+      "Please choose date range for data analyze: ",
+      dateInput("date_choose_start", "Date (y-m-d):", value = "2020-06-20"),
+      dateInput("date_choose_end", "Date (y-m-d):", value = "2020-08-15"),
+      
       checkboxInput("remove_frequency_chart", "Remove_frequency_chart", value = TRUE),
       actionButton("go_filter_outlier", "Filter outlier",style="color: #fff; background-color: #337ab7;"),
       actionButton("go_data_analyze_all_date", "Analyze data all day",style="color: #fff; background-color: #337ab7;"),
       
       htmlOutput("highcharter_box_filter_outlier"),
+      #plotlyOutput("plotly_box_filter_outlier"),
       tableOutput("descriptives_stat_all_date"),
+      "Line chart:",
+      #plotlyOutput("plotly_line_filter_outlier"),
+      highchartOutput("highcharter_line_filter_outlier"),
+      "QCC chart:",
+      plotOutput("all_day_qcc_chart"),
+      "QCC summary:",
+      #verbatimTextOutput("all_day_qcc_summary"),
       
       #---------Data analyze one day-------------
       h3("5. Data analysis one day"),
@@ -66,11 +79,10 @@ ui <- fluidPage(
       textOutput('min_date_text'),
       textOutput('max_date_text'),
       actionButton("go_data_analyze_one_date", "Analyze data one day",style="color: #fff; background-color: #337ab7;"),
-      h4("Descriptives statistics:"),
-      tableOutput("descriptives_stat"),
-      
-      #htmlOutput("dygraph_normal"),
-      htmlOutput("highcharter_normal"),
+      #h4("Descriptives statistics:"),
+      #tableOutput("descriptives_stat"),
+      #htmlOutput("dygraph_normal"), # Not used anymore
+      #htmlOutput("highcharter_normal"),
       
       h4("Descriptives statistics remove outlier:"),
       tableOutput("descriptives_stat_remove_outlier"),

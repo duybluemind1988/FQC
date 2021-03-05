@@ -3,7 +3,7 @@ library(data.table)
 library(tidyverse)
 library(lubridate)
 library(shiny)
-#library(plotly)
+library(plotly)
 library(psych)
 library(dygraphs)
 library(highcharter)
@@ -79,15 +79,122 @@ server <- function(input, output, session) {
     k=3
     subset(data_all_date(), select_data> (Q1 - k*IQR) & select_data< (Q3 + k*IQR))
   })
-  # High charter chart after filter outlier:
+  
+  ##-- Choose days for data analysis -- ##
+  data_all_date_no_outlier_specific_day_range<-reactive({
+                    req(input$go_data_analyze_all_date)
+                    data_all_date_no_outlier() %>%
+                    select(date,date_trans,date_filter,parameter_freq,parameter_value) %>%
+                    filter(date_filter >= ymd(input$date_choose_start) &
+                             date_filter<= ymd(input$date_choose_end))
+  })
+  
+  
+  # High charter chart after filter outlier: (1.1)
   output$highcharter_box_filter_outlier <- renderUI({
     req(input$go_data_analyze_all_date)
-    plot_box_high_charter(data_all_date_no_outlier(),input$remove_frequency_chart,input$go_data_analyze_all_date,input$USL,input$LSL)
+    plot_box_high_charter(data_all_date_no_outlier_specific_day_range(),input$remove_frequency_chart,input$go_data_analyze_all_date,input$USL,input$LSL)
   })
+  
+  # Plotly box plot after filter outlier (1.2)
+  # output$plotly_box_filter_outlier <- renderPlotly({
+  #   req(input$go_data_analyze_all_date)
+  #   plot_ly(data_all_date_no_outlier_specific_day_range(),
+  #           x =  ~factor(date_filter),
+  #           y = ~parameter_value,
+  #           #color = ~factor(date_filter),
+  #           type = "box",name="value") %>% 
+  #     add_lines(y=input$USL,name="USL",color="red") %>% 
+  #     add_lines(y=input$LSL,name="LSL",color="red")
+  # })
+  
   # show descriptive ststistics data all date:
   output$descriptives_stat_all_date <- renderTable({
     req(input$go_data_analyze_all_date)
-    psych::describe(data_all_date_no_outlier() %>% select(parameter_freq,parameter_value))
+    psych::describe(data_all_date_no_outlier_specific_day_range() %>% select(parameter_freq,parameter_value))
+  })
+  
+  # Group data by date for line plot
+  data_all_day_no_outlier_group <- reactive({
+    req(input$go_data_analyze_all_date)
+    data_all_date_no_outlier_specific_day_range() %>% 
+      group_by(date_filter) %>% 
+      summarise(value=mean(parameter_value))
+  })
+
+  # Plotly line plot after filter outlier (2.1)
+  # output$plotly_line_filter_outlier <- renderPlotly({
+  #   req(input$go_data_analyze_all_date)
+  #   plot_ly(data_all_day_no_outlier_group(),
+  #           x =  ~factor(date_filter),
+  #           y = ~value,
+  #           #color = ~factor(date_filter),
+  #           type = "scatter",mode="lines+markers",name="value") %>% 
+  #     add_lines(y=input$USL,name="USL",color="red") %>% 
+  #     add_lines(y=input$LSL,name="LSL",color="red")
+  # })
+  
+  # High charter line after filter outlier: (2.2)
+  output$highcharter_line_filter_outlier <- renderHighchart({
+    req(input$go_data_analyze_all_date)
+    # USL, LSL
+    length_data <- length(data_all_day_no_outlier_group()$value)
+    USL_vector<-rep(input$USL,each=length_data)
+    LSL_vector<-rep(input$LSL,each=length_data)
+    # UCL, LCL
+    Mean <- mean(data_all_day_no_outlier_group()$value)
+    mR <- mean(abs(diff(data_all_day_no_outlier_group()$value)))
+    Sigma <- mR/1.128
+    UCL <- Mean + 3 * Sigma
+    LCL <- Mean - 3 * Sigma
+    UCL_vector<-rep(UCL,each=length_data)
+    LCL_vector<-rep(LCL,each=length_data)
+    Mean_vector<-rep(Mean,each=length_data)
+    
+    res <- data_all_day_no_outlier_group()%>%
+      hchart(type = "line", hcaes(x = factor(date_filter), y = value),name='Value') %>% 
+      hc_add_series(data=USL_vector,color = "red",name = "USL",type="line") %>% 
+      hc_add_series(data=LSL_vector,color = "red",name = "LSL",type="line") 
+      #hc_add_series(data=UCL_vector,color = "blue",name = "UCL",type="line") %>% 
+      #hc_add_series(data=LCL_vector,color = "blue",name = "LCL",type="line") %>% 
+      #hc_add_series(data=Mean_vector,color = "blue",name = "Mean")
+    # render the dygraphs objects using htmltools
+    #res <- htmltools::tagList(res)
+    res
+  })
+  
+  #--- QCC chart with varian sample size (xbar)
+  
+  # # qcc chart prepare data
+  # data_all_day_no_outlier_qcc_group <- reactive({
+  #   attach(data_all_date_no_outlier_specific_day_range())
+  #   # create a matrix of 40 samples made of 5 observations each
+  #   data_all_day_no_outlier_qcc_group <- qcc.groups(parameter_value, date_filter)
+  # })
+  # 
+  # 
+  # # Qcc chart after filter outlier:
+  # output$all_day_qcc_chart<-renderPlot({
+  #   qcc(data_all_day_no_outlier_qcc_group(), type = "xbar",
+  #       #labels=format(data_all_day_no_outlier_qcc_group()$date_filter,"%b-%d-%H"),
+  #       axes.las = 2,xlab=""
+  #       )
+  # })
+  # # Summary qcc chart
+  # output$all_day_qcc_summary <-renderPrint({
+  #  summary(qcc(data_all_day_no_outlier_qcc_group(), type = "xbar"))
+  # })
+  
+  #--- QCC chart with mean value only (xbar.one)
+  # Qcc chart after filter outlier:
+  output$all_day_qcc_chart<-renderPlot({
+    qcc(data_all_day_no_outlier_group()$value, type="xbar.one",
+        labels=format(data_all_day_no_outlier_group()$date_filter,"%b-%d-%H"),axes.las = 2,xlab="")
+  })
+  # Summary qcc chart
+  output$all_day_qcc_summary <-renderPrint({
+    summary(qcc(data_all_day_no_outlier_group()$value, type="xbar.one",
+                labels=format(data_all_day_no_outlier_group()$date_filter,"%b-%d-%H"),axes.las = 2,xlab=""))
   })
   
   # ---------------Data analyze with only one day----------------------------#

@@ -409,24 +409,43 @@ p +
         axis.text.x = element_text(angle = 90))  # rotate x-axis text
 ```
 
-
+# x-bar chart
 ```{r}
+library(qcc)
+data(pistonrings)
+pistonrings
 ```
 
 
 ```{r}
+diameter <- qccGroups(diameter, sample, data = pistonrings)
+
+diameter <- qcc.groups(diameter, sample,data = pistonrings)
+head(diameter)
 ```
 
 
 ```{r}
+data(pistonrings)
+attach(pistonrings)
+# create a matrix of 40 samples made of 5 observations each
+diameter <- qcc.groups(diameter, sample)
+head(diameter)
 ```
 
 
 ```{r}
+q1 <- qcc(diameter[1:25,], type="xbar", newdata=diameter[26:40,])
+q1
 ```
 
+```{r}
+q1 <- qcc(diameter, type="xbar")
+```
 
 ```{r}
+q1 <- qcc(diameter, type="R")
+
 ```
 
 ```{r}

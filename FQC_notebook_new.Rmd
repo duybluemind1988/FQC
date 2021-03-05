@@ -267,8 +267,9 @@ data_all_day_no_outlier <- subset(data_all_day, select_data> (Q1 - k*IQR) & sele
 print(dim(data_all_day))
 print(dim(data_all_day_no_outlier))
 ```
+#1. Data one day:
 
-#** Line PLOT**
+## Line PLOT
 ## Dygraphs
 ```{r}
 #install.packages('highcharter')
@@ -319,7 +320,7 @@ dygraph(data_one_day_no_outlier %>% select(date_trans,parameter_freq), main = "F
 # render the dygraphs objects using htmltools
 htmltools::browsable(htmltools::tagList(dy_graph))
 ```
-## High charter
+## High charter Line plot
 ```{r}
 #install.packages("highcharter")
 library(highcharter)
@@ -349,6 +350,11 @@ Mean_vector<-rep(Mean,each=length_data)
 plotline_USL <- list(color = "red", value = USL, width = 2, zIndex = 5)
 
 plotline_LSL <- list(color = "red", value = LSL, width = 2, zIndex = 6)
+
+Mean
+Sigma
+LCL
+UCL
 ```
 Center of group statistics:  92.91126
 Standard deviation:  0.480768 
@@ -365,21 +371,15 @@ data_one_day_no_outlier%>%
   #hc_rangeSelector(selected = 4) %>% 
   #hc_scrollbar()
 ```
-```{r}
-data_one_day_no_outlier%>%
-  hchart(type = "stock", hcaes(x = date, y = parameter_value),name='Value') %>% 
-  hc_add_series(data=USL_vector,color = "red",name = "USL") %>% 
-  hc_add_series(data=LSL_vector,color = "red",name = "LSL")
-```
+
 
 ```{r}
-# FAIL
 data_one_day_no_outlier%>%
   hchart(type = "line", hcaes(x = date, y = parameter_value),name='Value') %>% 
-  hc_yAxis_multiples(
-    list(plotline_USL),
-    list(plotline_LSL)
-    )
+  hc_add_series(data=USL_vector,color = "red",name = "USL") %>% 
+  hc_add_series(data=LSL_vector,color = "red",name = "LSL") %>% 
+  hc_add_series(data=UCL_vector,color = "blue",name = "UCL") %>% 
+  hc_add_series(data=LCL_vector,color = "blue",name = "LCL") 
 ```
 
 ```{r}
@@ -396,7 +396,18 @@ data_one_day_no_outlier%>%
 #data_all_day_no_outlier%>%
 #  hchart(type = "line", hcaes(x = as.character(date_trans), y = parameter_freq))
 ```
-# Box plot
+## Control chart
+```{r}
+q2 = qcc(data_one_day_no_outlier$parameter_value, type="xbar.one", #std.dev = "SD",
+         labels=format(data_one_day_no_outlier$date_trans,"%b-%d-%H"),axes.las = 2,xlab="")
+summary(q2)
+```
+```{r}
+qcc(data_one_day_no_outlier$parameter_value, type="R")
+```
+
+# 2. Data all day
+## Box plot
 ## High charter
 ```{r}
 data_all_day_no_outlier
@@ -410,6 +421,25 @@ LSL <- 91
 USL_vector<-rep(USL,each=length_data)
 LSL_vector<-rep(LSL,each=length_data)
 length_data
+
+#sd <- sd(data_parameter)
+Mean <- mean(data_parameter)
+mR <- mean(abs(diff(data_parameter)))
+Sigma <- mR/1.128
+LCL <- Mean - 3 * Sigma
+UCL <- Mean + 3 * Sigma
+LCL_vector<-rep(LCL,each=length_data)
+UCL_vector<-rep(UCL,each=length_data)
+Mean_vector<-rep(Mean,each=length_data)
+
+plotline_USL <- list(color = "red", value = USL, width = 2, zIndex = 5)
+
+plotline_LSL <- list(color = "red", value = LSL, width = 2, zIndex = 6)
+
+Mean
+Sigma
+LCL
+UCL
 
 ```
 
@@ -440,25 +470,109 @@ highchart() %>%
   hc_xAxis(type = "category") %>%
   hc_add_series_list(dat) %>% 
   #hc_yAxis_multiples(list(plotline1)) %>% 
-  hc_add_series(data=USL_vector,color = "red",name = "USL") %>% 
+  hc_add_series(data=USL_vector,color = "red",name = "USL",type="line") %>% 
   hc_add_series(data=LSL_vector,color = "red",name = "LSL") %>% 
   hc_title(text = "Box plot") %>%
   hc_yAxis(title = list(text = "Value"))
   #hc_scrollbar()
 ```
 
+```{r}
+# FAIL
+data_all_day_no_outlier%>%
+  hchart(type = "box", hcaes(x = date, y = parameter_value),name='Value') %>% 
+  hc_add_series(data=USL_vector,color = "red",name = "USL") %>% 
+  hc_add_series(data=LSL_vector,color = "red",name = "LSL") %>% 
+  hc_add_series(data=UCL_vector,color = "blue",name = "UCL") %>% 
+  hc_add_series(data=LCL_vector,color = "blue",name = "LCL") 
+```
 
 ## Plotly
 ```{r}
 library(plotly)
 plot_ly(data_all_day_no_outlier,
-              y = ~parameter_value,
               x =  ~factor(date_filter),
+              y = ~parameter_value,
               #color = ~factor(date_filter),
-              type = "box") 
+              type = "box",name="value") %>% 
+  add_lines(y=USL,name="USL",color="red") %>% 
+  add_lines(y=LSL,name="LSL",color="red")
 ```
 
-#**Control chart investigate**
+
+## Line plot
+```{r}
+data_all_day_no_outlier_group <- data_all_day_no_outlier %>% 
+                                    group_by(date_filter) %>% 
+                                    summarise(value=mean(parameter_value))
+data_all_day_no_outlier_group
+```
+
+```{r}
+length_data <- length(data_all_day_no_outlier_group$value)
+data_parameter <- data_all_day_no_outlier_group$value
+USL <- 94
+LSL <- 91
+USL_vector<-rep(USL,each=length_data)
+LSL_vector<-rep(LSL,each=length_data)
+#sd <- sd(data_parameter)
+Mean <- mean(data_parameter)
+mR <- mean(abs(diff(data_parameter)))
+Sigma <- mR/1.128
+LCL <- Mean - 3 * Sigma
+UCL <- Mean + 3 * Sigma
+LCL_vector<-rep(LCL,each=length_data)
+UCL_vector<-rep(UCL,each=length_data)
+Mean_vector<-rep(Mean,each=length_data)
+
+plotline_USL <- list(color = "red", value = USL, width = 2, zIndex = 5)
+
+plotline_LSL <- list(color = "red", value = LSL, width = 2, zIndex = 6)
+
+Mean
+Sigma
+LCL
+UCL
+```
+```{r}
+USL_vector
+LSL_vector
+UCL_vector
+LCL_vector
+```
+
+```{r}
+data_all_day_no_outlier_group%>%
+  hchart(type = "line", hcaes(x = date_filter, y = value),name='Value') %>% 
+  hc_add_series(data=USL_vector,color = "red",name = "USL") %>% 
+  hc_add_series(data=LSL_vector,color = "red",name = "LSL") 
+  #hc_add_series(data=UCL_vector,color = "blue",name = "UCL") %>% 
+  #hc_add_series(data=LCL_vector,color = "blue",name = "LCL") 
+```
+```{r}
+plot_ly(data_all_day_no_outlier_group,
+              x =  ~factor(date_filter),
+              y = ~value,
+              #color = ~factor(date_filter),
+              type = "scatter",mode="lines+markers",name="value") %>% 
+  add_lines(y=USL,name="USL",color="red") %>% 
+  add_lines(y=LSL,name="LSL",color="red")
+```
+
+## Control chart R
+```{r}
+attach(data_all_day_no_outlier)
+# create a matrix of 40 samples made of 5 observations each
+data_all_day_no_outlier_qcc_group <- qcc.groups(parameter_value, date_filter)
+qcc(data_all_day_no_outlier_qcc_group, type = "xbar")
+
+```
+```{r}
+qcc(data_all_day_no_outlier_qcc_group, type = "R")
+```
+
+
+#Control chart investigate
 
 ```{r}
 data_research<-df_plot_no_outlier %>% select(date_trans,parameter_value)
