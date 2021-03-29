@@ -1,4 +1,5 @@
 library(plotly)
+library(highcharter)
 #### user interface
 #path<-'/mnt/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_3000_head.dat' # 25 MB OK
 #path<-'/mnt/01D6B57CFBE4DB20/1.Linux/Data/FQC/V04R-V04R-SQLData_3000_tail.dat' # 25 MB OK
